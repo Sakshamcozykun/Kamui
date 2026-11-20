@@ -1,0 +1,11 @@
+# compiled binary
+/kamui
+/dist/
+
+# test artifacts
+*.test
+*.out
+
+# editor
+.idea/
+.vscode/
