@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -19,11 +20,14 @@ var omdbEndpoint = "https://www.omdbapi.com/"
 
 // Movie is a search result from IMDB.
 type Movie struct {
-	ID     string // IMDB ID, e.g. "tt1979376"
-	Title  string
-	Year   int
-	Poster string
-	Rating float64
+	ID      string // IMDB ID, e.g. "tt1979376"
+	Title   string
+	Year    int
+	Poster  string
+	Rating  float64
+	Runtime string
+	Genre   string
+	Plot    string
 }
 
 // Details fills movie metadata from OMDb, including IMDb's own rating field.
@@ -62,6 +66,9 @@ func (c *Client) Details(ctx context.Context, movie *Movie) error {
 		Year       string `json:"Year"`
 		Poster     string `json:"Poster"`
 		IMDbRating string `json:"imdbRating"`
+		Runtime    string `json:"Runtime"`
+		Genre      string `json:"Genre"`
+		Plot       string `json:"Plot"`
 		Response   string `json:"Response"`
 		Error      string `json:"Error"`
 	}
@@ -74,6 +81,7 @@ func (c *Client) Details(ctx context.Context, movie *Movie) error {
 	if data.Title != "" {
 		movie.Title = data.Title
 	}
+	movie.Runtime, movie.Genre, movie.Plot = data.Runtime, data.Genre, data.Plot
 	if year, err := strconv.Atoi(strings.Split(data.Year, "–")[0]); err == nil {
 		movie.Year = year
 	}
@@ -161,5 +169,29 @@ func (c *Client) Search(ctx context.Context, query string) ([]Movie, error) {
 			Poster: d.I.ImageURL,
 		})
 	}
+	queryLower := strings.ToLower(strings.TrimSpace(query))
+	slices.SortStableFunc(movies, func(a, b Movie) int {
+		aExact, bExact := strings.EqualFold(a.Title, query), strings.EqualFold(b.Title, query)
+		if aExact != bExact {
+			if aExact {
+				return -1
+			}
+			return 1
+		}
+		aStarts, bStarts := strings.HasPrefix(strings.ToLower(a.Title), queryLower), strings.HasPrefix(strings.ToLower(b.Title), queryLower)
+		if aStarts != bStarts {
+			if aStarts {
+				return -1
+			}
+			return 1
+		}
+		if a.Year != b.Year {
+			if a.Year > b.Year {
+				return -1
+			}
+			return 1
+		}
+		return 0
+	})
 	return movies, nil
 }

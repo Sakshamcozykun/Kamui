@@ -82,7 +82,7 @@ func Execute() error {
 }
 
 func printWelcome() {
-	fmt.Fprintln(os.Stdout, `
+	fmt.Fprint(os.Stdout, `
   ██╗  ██╗ █████╗ ███╗   ███╗██╗   ██╗██╗
   ██║ ██╔╝██╔══██╗████╗ ████║██║   ██║██║
   █████╔╝ ███████║██╔████╔██║██║   ██║██║
@@ -96,10 +96,16 @@ func printWelcome() {
   ──────────────────────────────────────────────────────────
   kamui "movie title"              Find a title and print browser links
   kamui play "movie title"         Search and play a title
+  kamui music "artist - track"     Search and play music
   kamui select "movie title"       Search and choose a result
   kamui search "movie title"       Search live sites, no playback
   kamui sources                    List recommended sites
   kamui probe                      Check site health
+  kamui doctor                     Check playback dependencies
+  kamui library add "movie title"   Add a title to your watchlist
+  kamui library watchlist          Show your watchlist
+  kamui library history            Show search history
+  kamui config                     Show configuration status
 
   Run 'kamui help' for all flags and examples.
 `)

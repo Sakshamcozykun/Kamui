@@ -14,6 +14,7 @@ import (
 
 	"github.com/sakshamcozykun/kamui/internal/adapter"
 	"github.com/sakshamcozykun/kamui/internal/imdb"
+	"github.com/sakshamcozykun/kamui/internal/library"
 	"github.com/sakshamcozykun/kamui/internal/player"
 	"github.com/sakshamcozykun/kamui/internal/search"
 )
@@ -53,6 +54,7 @@ func playQuery(title string) error {
 	if title == "" {
 		return fmt.Errorf("usage: kamui [title]")
 	}
+	recordHistory(title)
 
 	// Step 1: resolve title to an IMDB ID via IMDB's public suggestion API.
 	fmt.Fprintf(os.Stderr, "looking up %q...\n", title)
@@ -192,6 +194,7 @@ func selectQuery(title string) error {
 	if title == "" {
 		return fmt.Errorf("usage: kamui <title>")
 	}
+	recordHistory(title)
 	metaClient := imdb.NewClient()
 	movies, metaErr := metaClient.Search(context.Background(), title)
 	if metaErr != nil {
@@ -224,7 +227,11 @@ func selectQuery(title string) error {
 	cfg.Workers = 12
 	cfg.Timeout = 6 * time.Second
 	cfg.Limit = 10
-	results, _ := search.Run(context.Background(), all, title, cfg)
+	alive, err := aliveSources(all, false)
+	if err != nil {
+		return err
+	}
+	results, _ := search.Run(context.Background(), alive, title, cfg)
 	if len(results) == 0 {
 		return fmt.Errorf("no results for %q", title)
 	}
@@ -232,6 +239,12 @@ func selectQuery(title string) error {
 		fmt.Fprintf(os.Stdout, "%d. %s — %s\n   %s\n", i+1, r.Site, r.Title, r.URL)
 	}
 	return nil
+}
+
+func recordHistory(title string) {
+	if s, err := library.New(); err == nil {
+		_ = s.Add("history", title)
+	}
 }
 
 func chooseMovie(movies []imdb.Movie) (imdb.Movie, error) {

@@ -17,6 +17,15 @@ func printMovieCard(movie imdb.Movie) {
 	} else {
 		fmt.Fprintln(os.Stderr, "IMDb rating: unavailable")
 	}
+	if movie.Runtime != "" {
+		fmt.Fprintf(os.Stderr, "Runtime: %s\n", movie.Runtime)
+	}
+	if movie.Genre != "" {
+		fmt.Fprintf(os.Stderr, "Genre: %s\n", movie.Genre)
+	}
+	if movie.Plot != "" {
+		fmt.Fprintf(os.Stderr, "Plot: %s\n", movie.Plot)
+	}
 	if movie.Poster == "" {
 		return
 	}

@@ -122,11 +122,23 @@ kamui probe --json                     # machine-readable output
 
 kamui search "toy story 4"             # parallel search across live sites
 kamui search --max 30 --debug "dune 2" # limit sites, trace each attempt
+kamui doctor                           # check mpv, yt-dlp, and ffmpeg
+kamui music "artist - track"           # search and play audio
+kamui music "https://example/..."      # play audio from a supported URL
+kamui config                           # show configuration status
+kamui library add "dune"               # add to watchlist
+kamui library remove "dune"            # remove from watchlist
+kamui library watchlist                # show saved titles
+kamui library history                  # show recent searches
 ```
 
 Wiki pages are cached under `~/.cache/kamui/fmhy/` and revalidated with
 `If-None-Match`, so repeat runs cost one conditional request instead of a full
-download. Probe results go to `~/.cache/kamui/probe.json`.
+download. Probe results go to the user cache directory. Watchlist and recent
+search history are stored under the user config directory.
+
+GitHub Actions tests and builds on Linux and Windows. Pushing a `v*` tag builds
+release binaries for Windows, Linux, and macOS (amd64 and arm64).
 
 ## Layout
 

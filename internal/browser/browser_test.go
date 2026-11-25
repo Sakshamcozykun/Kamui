@@ -2,6 +2,7 @@ package browser
 
 import (
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -10,10 +11,18 @@ import (
 )
 
 func TestPageState(t *testing.T) {
+	if os.Getenv("KAMUI_BROWSER_LIVE_TEST") != "1" {
+		t.Skip("live provider test; set KAMUI_BROWSER_LIVE_TEST=1 to run")
+	}
 	l := launcher.New().Headless(true).Set("no-sandbox").Set("disable-gpu")
-	u, _ := l.Launch()
+	u, err := l.Launch()
+	if err != nil {
+		t.Fatal(err)
+	}
 	browser := rod.New().ControlURL(u)
-	browser.Connect()
+	if err := browser.Connect(); err != nil {
+		t.Fatal(err)
+	}
 	defer browser.Close()
 
 	page := browser.MustPage("https://vidsrc.to/embed/movie/tt1979376/")
