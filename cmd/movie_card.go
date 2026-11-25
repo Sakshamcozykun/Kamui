@@ -41,11 +41,18 @@ func printPoster(posterURL string) error {
 	}
 	if catimg, err := exec.LookPath("catimg"); err == nil && os.Getenv("NO_COLOR") == "" {
 		f, err := os.CreateTemp("", "kamui-poster-*.img")
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 		name := f.Name()
 		defer os.Remove(name)
-		if _, err := f.ReadFrom(resp.Body); err != nil { f.Close(); return err }
-		if err := f.Close(); err != nil { return err }
+		if _, err := f.ReadFrom(resp.Body); err != nil {
+			f.Close()
+			return err
+		}
+		if err := f.Close(); err != nil {
+			return err
+		}
 		fmt.Fprintln(os.Stderr, "Poster:")
 		cmd := exec.Command(catimg, "-w", "28", filepath.Clean(name))
 		cmd.Stdout, cmd.Stderr = os.Stderr, os.Stderr

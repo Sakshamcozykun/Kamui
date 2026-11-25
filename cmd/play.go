@@ -185,20 +185,48 @@ func playQuery(title string) error {
 
 func selectQuery(title string) error {
 	title = strings.TrimSpace(title)
-	if title == "" { return fmt.Errorf("usage: kamui <title>") }
+	if title == "" {
+		return fmt.Errorf("usage: kamui <title>")
+	}
+	metaClient := imdb.NewClient()
+	movies, metaErr := metaClient.Search(context.Background(), title)
+	if metaErr != nil {
+		fmt.Fprintf(os.Stderr, "Movie metadata unavailable: %v\n", metaErr)
+	} else if len(movies) > 0 {
+		movie := movies[0]
+		if len(movies) > 1 {
+			movie, metaErr = chooseMovie(movies)
+			if metaErr != nil {
+				return metaErr
+			}
+		}
+		if err := metaClient.Details(context.Background(), &movie); err != nil {
+			fmt.Fprintf(os.Stderr, "IMDb rating lookup failed: %v\n", err)
+		}
+		printMovieCard(movie)
+	}
 	fmt.Fprintf(os.Stderr, "Searching browser links for %q...\n", title)
 	fmt.Fprintln(os.Stderr, "Loading FMHY source list...")
-	all, err := loadSources(); if err != nil { return err }
+	all, err := loadSources()
+	if err != nil {
+		return err
+	}
 	const maxBrowserSearchSources = 20
-	if len(all) > maxBrowserSearchSources { all = all[:maxBrowserSearchSources] }
+	if len(all) > maxBrowserSearchSources {
+		all = all[:maxBrowserSearchSources]
+	}
 	fmt.Fprintf(os.Stderr, "Searching %d sites for %q...\n", len(all), title)
 	cfg := search.DefaultConfig()
 	cfg.Workers = 12
 	cfg.Timeout = 6 * time.Second
 	cfg.Limit = 10
 	results, _ := search.Run(context.Background(), all, title, cfg)
-	if len(results) == 0 { return fmt.Errorf("no results for %q", title) }
-	for i, r := range results { fmt.Fprintf(os.Stdout, "%d. %s — %s\n   %s\n", i+1, r.Site, r.Title, r.URL) }
+	if len(results) == 0 {
+		return fmt.Errorf("no results for %q", title)
+	}
+	for i, r := range results {
+		fmt.Fprintf(os.Stdout, "%d. %s — %s\n   %s\n", i+1, r.Site, r.Title, r.URL)
+	}
 	return nil
 }
 
