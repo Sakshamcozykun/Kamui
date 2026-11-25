@@ -1,36 +1,47 @@
 package cmd
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"strings"
 	"text/tabwriter"
 
+	"github.com/spf13/cobra"
+
 	"github.com/sakshamcozykun/kamui/internal/fmhy"
 )
 
-// Sources implements "kamui sources".
-func Sources(args []string) error {
-	fs := flag.NewFlagSet("sources", flag.ContinueOnError)
-	section := fs.String("section", "", "only show sections containing this text (case-insensitive)")
-	starred := fs.Bool("starred", false, "only show FMHY-starred picks")
-	max := fs.Int("max", 0, "stop after N sources (0 = all)")
-	if err := fs.Parse(args); err != nil {
-		return err
-	}
+var (
+	sourcesSection string
+	sourcesStarred bool
+	sourcesMax     int
+)
 
+var sourcesCmd = &cobra.Command{
+	Use:   "sources",
+	Short: "List the sites FMHY recommends",
+	RunE:  runSources,
+}
+
+func init() {
+	rootCmd.AddCommand(sourcesCmd)
+	sourcesCmd.Flags().StringVar(&sourcesSection, "section", "", "only show sections containing this text (case-insensitive)")
+	sourcesCmd.Flags().BoolVar(&sourcesStarred, "starred", false, "only show FMHY-starred picks")
+	sourcesCmd.Flags().IntVar(&sourcesMax, "max", 0, "stop after N sources (0 = all)")
+}
+
+func runSources(cmd *cobra.Command, args []string) error {
 	all, err := loadSources()
 	if err != nil {
 		return err
 	}
 
-	sources := filter(all, *section, *starred)
+	sources := filter(all, sourcesSection, sourcesStarred)
 	if len(sources) == 0 {
 		return fmt.Errorf("no sources matched")
 	}
-	if *max > 0 && len(sources) > *max {
-		sources = sources[:*max]
+	if sourcesMax > 0 && len(sources) > sourcesMax {
+		sources = sources[:sourcesMax]
 	}
 
 	printSources(sources)

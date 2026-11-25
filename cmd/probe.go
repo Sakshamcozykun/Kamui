@@ -4,7 +4,6 @@ import (
 	"cmp"
 	"context"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,45 +12,58 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/sakshamcozykun/kamui/internal/fmhy"
 	"github.com/sakshamcozykun/kamui/internal/probe"
 )
 
-const probeTTL = 12 * time.Hour
+var (
+	probeSection string
+	probeRefresh bool
+	probeWorkers int
+	probeTimeout time.Duration
+	probeMax     int
+	probeJSON    bool
+)
 
-// Probe implements "kamui probe".
-func Probe(args []string) error {
-	fs := flag.NewFlagSet("probe", flag.ContinueOnError)
-	section := fs.String("section", "", "only probe sections containing this text")
-	refresh := fs.Bool("refresh", false, "ignore the cached results and check again")
-	workers := fs.Int("workers", 16, "how many requests to make at once")
-	timeout := fs.Duration("timeout", 10*time.Second, "per-site timeout, e.g. 5s")
-	limit := fs.Int("max", 0, "stop after N sources (0 = all)")
-	asJSON := fs.Bool("json", false, "print raw JSON instead of a table")
-	if err := fs.Parse(args); err != nil {
-		return err
-	}
+var probeCmd = &cobra.Command{
+	Use:   "probe",
+	Short: "Check which FMHY-listed sites are actually alive",
+	RunE:  runProbe,
+}
 
+func init() {
+	rootCmd.AddCommand(probeCmd)
+	probeCmd.Flags().StringVar(&probeSection, "section", "", "only probe sections containing this text")
+	probeCmd.Flags().BoolVar(&probeRefresh, "refresh", false, "ignore the cached results and check again")
+	probeCmd.Flags().IntVar(&probeWorkers, "workers", 16, "how many requests to make at once")
+	probeCmd.Flags().DurationVar(&probeTimeout, "timeout", 10*time.Second, "per-site timeout, e.g. 5s")
+	probeCmd.Flags().IntVar(&probeMax, "max", 0, "stop after N sources (0 = all)")
+	probeCmd.Flags().BoolVar(&probeJSON, "json", false, "print raw JSON instead of a table")
+}
+
+func runProbe(cmd *cobra.Command, args []string) error {
 	all, err := loadSources()
 	if err != nil {
 		return err
 	}
-	sources := filter(all, *section, false)
-	if *limit > 0 && len(sources) > *limit {
-		sources = sources[:*limit]
+	sources := filter(all, probeSection, false)
+	if probeMax > 0 && len(sources) > probeMax {
+		sources = sources[:probeMax]
 	}
 	if len(sources) == 0 {
 		return fmt.Errorf("no sources matched")
 	}
 
-	results, fromCache, err := probeSources(sources, *refresh, *workers, *timeout)
+	results, fromCache, err := probeSources(sources, probeRefresh, probeWorkers, probeTimeout)
 	if err != nil {
 		return err
 	}
 
 	orderResults(results)
 
-	if *asJSON {
+	if probeJSON {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
 		return enc.Encode(results)
@@ -84,8 +96,6 @@ func probeSources(sources []fmhy.Source, refresh bool, workers int, timeout time
 	return results, false, nil
 }
 
-// reuse reattaches cached results to the current source list by host, so a
-// freshly added site is not silently reported as fine.
 func reuse(cached []probe.Result, sources []fmhy.Source) []probe.Result {
 	byHost := make(map[string]probe.Result, len(cached))
 	for _, r := range cached {

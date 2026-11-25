@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	if err := cmd.Execute(os.Args[1:]); err != nil {
+	if err := cmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, "kamui:", err)
 		os.Exit(1)
 	}

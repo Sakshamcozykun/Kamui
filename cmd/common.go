@@ -5,9 +5,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/sakshamcozykun/kamui/internal/fmhy"
 )
+
+const probeTTL = 12 * time.Hour
 
 // cacheDir returns ~/.cache/kamui on Linux, or "" if the OS will not say,
 // which disables caching.
