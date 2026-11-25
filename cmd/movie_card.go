@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/sakshamcozykun/kamui/internal/imdb"
@@ -24,12 +25,8 @@ func printMovieCard(movie imdb.Movie) {
 	if movie.Poster == "" {
 		return
 	}
-	if _, err := exec.LookPath("catimg"); err != nil || os.Getenv("NO_COLOR") != "" {
-		fmt.Fprintf(os.Stderr, "Poster: %s\n", movie.Poster)
-		return
-	}
 	if err := printPoster(movie.Poster); err != nil {
-		fmt.Fprintf(os.Stderr, "Poster: %s\n", movie.Poster)
+		fmt.Fprintf(os.Stderr, "Could not render poster: %v\n", err)
 	}
 }
 
@@ -42,11 +39,23 @@ func printPoster(posterURL string) error {
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("poster HTTP %d", resp.StatusCode)
 	}
+	if catimg, err := exec.LookPath("catimg"); err == nil && os.Getenv("NO_COLOR") == "" {
+		f, err := os.CreateTemp("", "kamui-poster-*.img")
+		if err != nil { return err }
+		name := f.Name()
+		defer os.Remove(name)
+		if _, err := f.ReadFrom(resp.Body); err != nil { f.Close(); return err }
+		if err := f.Close(); err != nil { return err }
+		fmt.Fprintln(os.Stderr, "Poster:")
+		cmd := exec.Command(catimg, "-w", "28", filepath.Clean(name))
+		cmd.Stdout, cmd.Stderr = os.Stderr, os.Stderr
+		return cmd.Run()
+	}
 	img, _, err := image.Decode(resp.Body)
 	if err != nil {
 		return err
 	}
-	img = fitPoster(img, 24, 16)
+	img = fitPoster(img, 28, 36)
 	fmt.Fprintln(os.Stderr, "Poster:")
 	for y := 0; y < img.Bounds().Dy(); y += 2 {
 		var line strings.Builder
