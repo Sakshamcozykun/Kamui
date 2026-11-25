@@ -7,9 +7,33 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 )
+
+// LookPathTool locates a media executable, including common Windows install
+// directories for packages that do not register their binaries on PATH.
+func LookPathTool(name string) (string, error) {
+	if path, err := exec.LookPath(name); err == nil {
+		return path, nil
+	}
+	if runtime.GOOS == "windows" && name == "mpv" {
+		for _, dir := range []string{os.Getenv("ProgramFiles"), os.Getenv("ProgramFiles(x86)")} {
+			if dir == "" {
+				continue
+			}
+			for _, subdir := range []string{"MPV Player", "mpv"} {
+				candidate := filepath.Join(dir, subdir, "mpv.exe")
+				if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
+					return candidate, nil
+				}
+			}
+		}
+	}
+	return "", fmt.Errorf("%s not found on PATH or in standard install locations", name)
+}
 
 // Extract asks yt-dlp for a direct stream URL behind a page. It returns the
 // first URL yt-dlp prints, or an error if extraction fails.
@@ -42,11 +66,12 @@ func Extract(ctx context.Context, pageURL string, timeout time.Duration) (string
 
 // Play runs mpv on a direct stream URL. It blocks until playback ends.
 func Play(ctx context.Context, streamURL, title string) error {
-	if _, err := exec.LookPath("mpv"); err != nil {
+	mpvPath, err := LookPathTool("mpv")
+	if err != nil {
 		return fmt.Errorf("mpv not found; install it with: sudo apt install mpv")
 	}
 
-	cmd := exec.CommandContext(ctx, "mpv", "--force-media-title="+title, streamURL)
+	cmd := exec.CommandContext(ctx, mpvPath, "--force-media-title="+title, streamURL)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sakshamcozykun/kamui/internal/player"
 	"github.com/spf13/cobra"
 )
 
@@ -21,7 +22,8 @@ var musicCmd = &cobra.Command{
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		query := strings.TrimSpace(strings.Join(args, " "))
-		if _, err := exec.LookPath("mpv"); err != nil {
+		mpvPath, err := player.LookPathTool("mpv")
+		if err != nil {
 			return fmt.Errorf("mpv is required for music playback; install it and ensure it is on PATH (run 'kamui doctor')")
 		}
 		if _, err := exec.LookPath("yt-dlp"); err != nil {
@@ -81,9 +83,9 @@ var musicCmd = &cobra.Command{
 			}
 		}
 		fmt.Fprintf(os.Stderr, "Starting %s...\n", map[bool]string{true: "radio", false: "audio playback"}[radio])
-		player := exec.Command("mpv", "--no-video", "--ytdl=yes", "--force-media-title="+title, playURL)
-		player.Stdin, player.Stdout, player.Stderr = os.Stdin, os.Stdout, os.Stderr
-		return player.Run()
+		mpv := exec.Command(mpvPath, "--no-video", "--ytdl=yes", "--force-media-title="+title, playURL)
+		mpv.Stdin, mpv.Stdout, mpv.Stderr = os.Stdin, os.Stdout, os.Stderr
+		return mpv.Run()
 	},
 }
 

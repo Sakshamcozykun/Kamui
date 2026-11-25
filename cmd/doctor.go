@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/sakshamcozykun/kamui/internal/player"
 	"github.com/spf13/cobra"
 )
 
@@ -17,7 +18,7 @@ var doctorCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		missing := make([]string, 0, 3)
 		for _, name := range []string{"mpv", "yt-dlp", "ffmpeg"} {
-			if path, err := exec.LookPath(name); err == nil {
+			if path, err := player.LookPathTool(name); err == nil {
 				fmt.Printf("[ok]      %s: %s\n", name, path)
 			} else {
 				fmt.Printf("[missing] %s\n", name)
@@ -64,7 +65,7 @@ func installPlaybackTools(missing []string) error {
 	case "windows":
 		ids := map[string]string{"mpv": "shinchiro.mpv", "yt-dlp": "yt-dlp.yt-dlp", "ffmpeg": "Gyan.FFmpeg"}
 		for _, name := range missing {
-			args := []string{"install", "--exact", "--id", ids[name], "--source", "winget", "--accept-package-agreements", "--accept-source-agreements"}
+			args := []string{"install", "--force", "--exact", "--id", ids[name], "--source", "winget", "--accept-package-agreements", "--accept-source-agreements"}
 			if err := runInstaller("winget", args...); err != nil {
 				return err
 			}
