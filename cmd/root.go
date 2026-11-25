@@ -9,6 +9,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	playMax     int
+	playWorkers int
+	playTimeout time.Duration
+	playPick    bool
+	playDebug   bool
+)
+
 var rootCmd = &cobra.Command{
 	Use:   "kamui [title]",
 	Short: "Pull streams from FMHY-listed sites into your terminal",

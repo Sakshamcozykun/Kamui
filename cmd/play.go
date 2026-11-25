@@ -1,41 +1,48 @@
 package cmd
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/spf13/cobra"
 
+	"github.com/sakshamcozykun/kamui/internal/adapter"
+	"github.com/sakshamcozykun/kamui/internal/imdb"
 	"github.com/sakshamcozykun/kamui/internal/player"
 	"github.com/sakshamcozykun/kamui/internal/search"
 )
 
-var (
-	playMax     int
-	playWorkers int
-	playTimeout time.Duration
-	playPick    bool
-	playDebug   bool
-)
-
+// playCmd is the "play" subcommand.
 var playCmd = &cobra.Command{
 	Use:   "play [title]",
-	Short: "Search and play a title",
-	RunE:  func(cmd *cobra.Command, args []string) error { return playQuery(strings.Join(args, " ")) },
+	Short: "Search and play a title from FMHY-listed sites",
+	Long: `kamui play searches live FMHY sites and tries to play the result in mpv.
+
+If a TMDB/API key is configured, the title is first resolved to an IMDB ID,
+then embed providers (VidSrc, 2Embed, VidLink) are tried in parallel.
+
+If no key is configured, the IMDB suggestion API (no key required) is used.
+
+Examples:
+  kamui play "toy story 4"
+  kamui play --pick "toy story 4"   # show list and choose
+  kamui --max 10 play "dune part two"`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return playQuery(strings.Join(args, " "))
+	},
 }
 
 func init() {
 	rootCmd.AddCommand(playCmd)
-	playCmd.Flags().IntVar(&playMax, "max", 0, "only use the first N sources (0 = all)")
-	playCmd.Flags().IntVar(&playWorkers, "workers", 12, "how many sites to search at once")
-	playCmd.Flags().DurationVar(&playTimeout, "timeout", 8*time.Second, "per-site timeout")
-	playCmd.Flags().BoolVar(&playPick, "pick", false, "show a list and ask which one to play")
-	playCmd.Flags().BoolVar(&playDebug, "debug", false, "show what each site did")
+	playCmd.Flags().IntVar(&playMax, "max", playMax, "only use the first N sources (0 = all)")
+	playCmd.Flags().IntVar(&playWorkers, "workers", playWorkers, "how many sites to search at once")
+	playCmd.Flags().DurationVar(&playTimeout, "timeout", playTimeout, "per-site timeout")
+	playCmd.Flags().BoolVar(&playPick, "pick", playPick, "show a list and ask which one to play")
+	playCmd.Flags().BoolVar(&playDebug, "debug", playDebug, "show what each site did")
 }
 
 // playQuery is shared by "kamui play ..." and the default "kamui <title>".
@@ -44,6 +51,84 @@ func playQuery(title string) error {
 	if title == "" {
 		return fmt.Errorf("usage: kamui [title]")
 	}
+
+	// Step 1: resolve title to an IMDB ID via IMDB's public suggestion API.
+	fmt.Fprintf(os.Stderr, "looking up %q...\n", title)
+	imdbClient := imdb.NewClient()
+	movies, err := imdbClient.Search(context.Background(), title)
+	if err != nil {
+		return fmt.Errorf("imdb lookup failed: %w", err)
+	}
+	if len(movies) == 0 {
+		return fmt.Errorf("no movie found for %q", title)
+	}
+
+	movie := movies[0]
+	if len(movies) > 1 {
+		fmt.Fprintf(os.Stderr, "found %d matches, using: %s (%d)\n", len(movies), movie.Title, movie.Year)
+		for i, m := range movies {
+			if i == 0 {
+				continue
+			}
+			fmt.Fprintf(os.Stderr, "  %d. %s (%d) %s\n", i+1, m.Title, m.Year, m.ID)
+		}
+	}
+
+	imdbID := movie.ID
+
+	// Step 2: try embed providers in parallel.
+	// Adapters implement the Adapter interface; each takes an IMDB ID and
+	// returns a stream URL (or an error if the site can't provide one).
+	adapters := []adapter.Adapter{
+		adapter.NewVidSrc(),
+		adapter.NewTwoEmbed(),
+		adapter.NewVidLink(),
+	}
+
+	fmt.Fprintf(os.Stderr, "trying %d providers for %s...\n", len(adapters), imdbID)
+
+	type result struct {
+		name string
+		url  string
+		err  error
+	}
+	resCh := make(chan result, len(adapters))
+
+	var wg sync.WaitGroup
+	for _, a := range adapters {
+		wg.Add(1)
+		go func(a adapter.Adapter) {
+			defer wg.Done()
+			u, err := a.Extract(context.Background(), imdbID)
+			resCh <- result{name: a.Name(), url: u, err: err}
+		}(a)
+	}
+
+	// Collect results as they arrive; play the first success.
+	go func() {
+		wg.Wait()
+		close(resCh)
+	}()
+
+	for r := range resCh {
+		if r.err != nil {
+			fmt.Fprintf(os.Stderr, "  %s: %v\n", r.name, r.err)
+			continue
+		}
+		fmt.Fprintf(os.Stderr, "  %s: found stream\n", r.name)
+
+		// Try to play the stream with mpv.
+		if err := player.Play(context.Background(), r.url, movie.Title); err != nil {
+			fmt.Fprintf(os.Stderr, "  playback failed: %v\n", err)
+			// If this adapter failed, continue to the next one.
+			continue
+		}
+		fmt.Fprintf(os.Stderr, "playing: %s (%d)\n", movie.Title, movie.Year)
+		return nil
+	}
+
+	// Step 3: all adapters failed – fall back to generic search.
+	fmt.Fprintln(os.Stderr, "\nall providers failed; falling back to generic search...")
 
 	all, err := loadSources()
 	if err != nil {
@@ -65,27 +150,13 @@ func playQuery(title string) error {
 	cfg.Timeout = playTimeout
 	cfg.Limit = 10
 
-	results, attempts := search.Run(context.Background(), alive, title, cfg)
-	if playDebug {
-		for _, a := range attempts {
-			fmt.Fprintf(os.Stderr, "  %-28s code=%-4s anchors=%-4s matched=%-3s %s\n",
-				a.Host, itoa(a.Code), itoa(a.Anchors), itoa(a.Matched), a.Err)
-		}
-	}
-	if len(results) == 0 {
-		return fmt.Errorf("no results for %q", title)
+	searchResults, _ := search.Run(context.Background(), alive, title, cfg)
+	if len(searchResults) == 0 {
+		return fmt.Errorf("no playable stream found")
 	}
 
-	choice := 0
-	if playPick {
-		choice, err = pickResult(results)
-		if err != nil {
-			return err
-		}
-	}
-
-	for i := choice; i < len(results); i++ {
-		r := results[i]
+	for i := 0; i < len(searchResults); i++ {
+		r := searchResults[i]
 		fmt.Fprintf(os.Stderr, "trying: %s — %s\n", r.Site, r.Title)
 
 		streamURL, err := player.Extract(context.Background(), r.URL, 30*time.Second)
@@ -102,26 +173,5 @@ func playQuery(title string) error {
 		return nil
 	}
 
-	return fmt.Errorf("no playable stream found\n\n" +
-		"the generic search found pages, but those sites render their players in\n" +
-		"JavaScript, so yt-dlp cannot extract a stream URL from them. this is\n" +
-		"the expected wall for v0.1: site-specific adapters are the next step,\n" +
-		"and the probe's tier fingerprints (movie-web, p-stream, vidsrc) are\n" +
-		"what those adapters will be built against")
-}
-
-func pickResult(results []search.Result) (int, error) {
-	fmt.Fprintln(os.Stderr, "\nresults:")
-	for i, r := range results {
-		fmt.Fprintf(os.Stderr, "  %d. %s — %s (%.2f)\n", i+1, r.Site, r.Title, r.Score)
-	}
-	fmt.Fprint(os.Stderr, "pick a number: ")
-
-	reader := bufio.NewReader(os.Stdin)
-	line, _ := reader.ReadString('\n')
-	n, err := strconv.Atoi(strings.TrimSpace(line))
-	if err != nil || n < 1 || n > len(results) {
-		return 0, fmt.Errorf("invalid selection")
-	}
-	return n - 1, nil
+	return fmt.Errorf("no playable stream found")
 }
