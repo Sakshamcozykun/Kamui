@@ -78,12 +78,6 @@ func Execute() error {
 	if len(positional) == 0 {
 		return rootCmd.Execute()
 	}
-	// If there's exactly one positional arg with no spaces, it's likely not
-	// a movie title (most titles have at least one space). Treat it as an
-	// unknown command rather than searching for it.
-	if len(positional) == 1 && !strings.Contains(positional[0], " ") {
-		return fmt.Errorf("kamui: %q is not a movie title; see 'kamui help'", positional[0])
-	}
 	return selectQuery(strings.Join(positional, " "))
 }
 

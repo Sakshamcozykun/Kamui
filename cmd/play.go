@@ -187,8 +187,16 @@ func selectQuery(title string) error {
 	title = strings.TrimSpace(title)
 	if title == "" { return fmt.Errorf("usage: kamui <title>") }
 	fmt.Fprintf(os.Stderr, "Searching browser links for %q...\n", title)
+	fmt.Fprintln(os.Stderr, "Loading FMHY source list...")
 	all, err := loadSources(); if err != nil { return err }
-	results, _ := search.Run(context.Background(), all, title, search.DefaultConfig())
+	const maxBrowserSearchSources = 20
+	if len(all) > maxBrowserSearchSources { all = all[:maxBrowserSearchSources] }
+	fmt.Fprintf(os.Stderr, "Searching %d sites for %q...\n", len(all), title)
+	cfg := search.DefaultConfig()
+	cfg.Workers = 12
+	cfg.Timeout = 6 * time.Second
+	cfg.Limit = 10
+	results, _ := search.Run(context.Background(), all, title, cfg)
 	if len(results) == 0 { return fmt.Errorf("no results for %q", title) }
 	for i, r := range results { fmt.Fprintf(os.Stdout, "%d. %s — %s\n   %s\n", i+1, r.Site, r.Title, r.URL) }
 	return nil
