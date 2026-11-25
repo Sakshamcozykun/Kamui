@@ -102,7 +102,12 @@ func playQuery(title string) error {
 		return nil
 	}
 
-	return fmt.Errorf("no playable stream found")
+	return fmt.Errorf("no playable stream found\n\n" +
+		"the generic search found pages, but those sites render their players in\n" +
+		"JavaScript, so yt-dlp cannot extract a stream URL from them. this is\n" +
+		"the expected wall for v0.1: site-specific adapters are the next step,\n" +
+		"and the probe's tier fingerprints (movie-web, p-stream, vidsrc) are\n" +
+		"what those adapters will be built against")
 }
 
 func pickResult(results []search.Result) (int, error) {

@@ -21,7 +21,9 @@ func Extract(ctx context.Context, pageURL string, timeout time.Duration) (string
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "yt-dlp", "--no-playlist", "-g", pageURL)
+	// --no-update silences the "your version is older than 90 days" nag that
+	// apt-installed yt-dlp prints on every run. --no-warnings drops the rest.
+	cmd := exec.CommandContext(ctx, "yt-dlp", "--no-update", "--no-warnings", "--no-playlist", "-g", pageURL)
 	cmd.Stderr = os.Stderr
 	out, err := cmd.Output()
 	if err != nil {
