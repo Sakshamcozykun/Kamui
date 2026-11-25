@@ -2,16 +2,11 @@ package cmd
 
 import (
 	"fmt"
-	"image"
-	"image/color"
-	_ "image/jpeg"
-	_ "image/png"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
 
+	termimg "github.com/blacktop/go-termimg"
 	"github.com/sakshamcozykun/kamui/internal/imdb"
 )
 
@@ -39,60 +34,23 @@ func printPoster(posterURL string) error {
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("poster HTTP %d", resp.StatusCode)
 	}
-	if catimg, err := exec.LookPath("catimg"); err == nil && os.Getenv("NO_COLOR") == "" {
-		f, err := os.CreateTemp("", "kamui-poster-*.img")
-		if err != nil {
-			return err
-		}
-		name := f.Name()
-		defer os.Remove(name)
-		if _, err := f.ReadFrom(resp.Body); err != nil {
-			f.Close()
-			return err
-		}
-		if err := f.Close(); err != nil {
-			return err
-		}
-		fmt.Fprintln(os.Stderr, "Poster:")
-		cmd := exec.Command(catimg, "-w", "28", filepath.Clean(name))
-		cmd.Stdout, cmd.Stderr = os.Stderr, os.Stderr
-		return cmd.Run()
-	}
-	img, _, err := image.Decode(resp.Body)
+	temp, err := os.CreateTemp("", "kamui-poster-*.img")
 	if err != nil {
 		return err
 	}
-	img = fitPoster(img, 28, 36)
+	name := temp.Name()
+	defer os.Remove(name)
+	if _, err := temp.ReadFrom(resp.Body); err != nil {
+		temp.Close()
+		return err
+	}
+	if err := temp.Close(); err != nil {
+		return err
+	}
 	fmt.Fprintln(os.Stderr, "Poster:")
-	for y := 0; y < img.Bounds().Dy(); y += 2 {
-		var line strings.Builder
-		for x := 0; x < img.Bounds().Dx(); x++ {
-			top := rgb(img.At(x, y))
-			bottom := top
-			if y+1 < img.Bounds().Dy() {
-				bottom = rgb(img.At(x, y+1))
-			}
-			fmt.Fprintf(&line, "\x1b[38;2;%d;%d;%dm\x1b[48;2;%d;%d;%dm\u2580", top[0], top[1], top[2], bottom[0], bottom[1], bottom[2])
-		}
-		fmt.Fprintf(os.Stderr, "%s\x1b[0m\n", line.String())
+	img, err := termimg.Open(filepath.Clean(name))
+	if err != nil {
+		return err
 	}
-	return nil
-}
-
-func fitPoster(src image.Image, width, height int) image.Image {
-	dst := image.NewRGBA(image.Rect(0, 0, width, height))
-	sb := src.Bounds()
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			sx := sb.Min.X + x*sb.Dx()/width
-			sy := sb.Min.Y + y*sb.Dy()/height
-			dst.Set(x, y, src.At(sx, sy))
-		}
-	}
-	return dst
-}
-
-func rgb(c color.Color) [3]uint8 {
-	r, g, b, _ := c.RGBA()
-	return [3]uint8{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8)}
+	return img.Width(32).Height(40).Print()
 }

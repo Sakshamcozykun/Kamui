@@ -50,7 +50,7 @@ therefore the tool never breaks" is not something this project claims.
 
 ## Install
 
-Requires Go 1.22+.
+Requires Go 1.26+.
 
 ### Windows prerequisite
 
@@ -73,6 +73,11 @@ git clone https://github.com/sakshamcozykun/Kamui
 cd Kamui
 go install .
 ```
+
+Go downloads and builds Kamui's Go dependencies automatically, including the
+terminal image renderer used for movie posters. No separate `catimg` install
+command is needed. Full-resolution posters require a terminal that supports
+Kitty, iTerm2, or Sixel graphics; other terminals may show a text fallback.
 
 To run the checkout directly while developing instead of using the installed
 binary, use `go run .` from the repository directory.
