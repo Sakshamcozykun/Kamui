@@ -86,6 +86,12 @@ This installs `kamui` globally in Go's bin directory. Make sure that directory
 is on your `PATH` (`go env GOPATH`/`bin`, or `go env GOBIN` when it is set),
 then open a new terminal and run:
 
+Movie ratings and OMDb poster metadata require an OMDb API key. After
+installing Kamui, run `kamui poster`; it prompts for your key and saves it in
+your per-user Kamui config. Get a key at
+[OMDb](https://www.omdbapi.com/apikey.aspx). The `OMDB_API_KEY` environment
+variable can also be used instead of the saved key.
+
 ```bash
 kamui
 ```

@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -16,6 +15,7 @@ import (
 
 // endpoint is a package variable so tests can point it at a local server.
 var endpoint = "https://v2.sg.media-imdb.com/suggestion"
+var omdbEndpoint = "https://www.omdbapi.com/"
 
 // Movie is a search result from IMDB.
 type Movie struct {
@@ -26,16 +26,29 @@ type Movie struct {
 	Rating float64
 }
 
-// Details fills in metadata that the suggestion endpoint does not provide.
+// Details fills movie metadata from OMDb, including IMDb's own rating field.
 func (c *Client) Details(ctx context.Context, movie *Movie) error {
 	if movie == nil || movie.ID == "" {
 		return fmt.Errorf("missing movie id")
 	}
-	req, err := http.NewRequestWithContext(ctx, "GET", "https://www.imdb.com/title/"+movie.ID+"/", nil)
+	key, err := apiKey()
 	if err != nil {
 		return err
 	}
-	req.Header.Set("User-Agent", "Mozilla/5.0")
+	u, err := url.Parse(omdbEndpoint)
+	if err != nil {
+		return err
+	}
+	q := u.Query()
+	q.Set("i", movie.ID)
+	q.Set("apikey", key)
+	q.Set("r", "json")
+	u.RawQuery = q.Encode()
+	req, err := http.NewRequestWithContext(ctx, "GET", u.String(), nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("User-Agent", "Kamui/1.0")
 	resp, err := c.HTTP.Do(req)
 	if err != nil {
 		return fmt.Errorf("imdb details: %w", err)
@@ -44,18 +57,37 @@ func (c *Client) Details(ctx context.Context, movie *Movie) error {
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("imdb details: HTTP %d", resp.StatusCode)
 	}
-	body := make([]byte, 0, 256*1024)
-	buf := make([]byte, 32*1024)
-	for {
-		n, readErr := resp.Body.Read(buf)
-		body = append(body, buf[:n]...)
-		if readErr != nil {
-			break
+	var data struct {
+		Title      string `json:"Title"`
+		Year       string `json:"Year"`
+		Poster     string `json:"Poster"`
+		IMDbRating string `json:"imdbRating"`
+		Response   string `json:"Response"`
+		Error      string `json:"Error"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return fmt.Errorf("OMDb response: %w", err)
+	}
+	if data.Response == "False" {
+		return fmt.Errorf("OMDb: %s", data.Error)
+	}
+	if data.Title != "" {
+		movie.Title = data.Title
+	}
+	if year, err := strconv.Atoi(strings.Split(data.Year, "–")[0]); err == nil {
+		movie.Year = year
+	}
+	if data.Poster != "" && data.Poster != "N/A" {
+		movie.Poster = data.Poster
+	}
+	if data.IMDbRating != "" && data.IMDbRating != "N/A" {
+		movie.Rating, err = strconv.ParseFloat(data.IMDbRating, 64)
+		if err != nil {
+			return fmt.Errorf("invalid IMDb rating from OMDb: %w", err)
 		}
 	}
-	match := regexp.MustCompile(`"ratingValue"\s*:\s*"?([0-9]+(?:\.[0-9]+)?)`).FindSubmatch(body)
-	if len(match) > 1 {
-		movie.Rating, _ = strconv.ParseFloat(string(match[1]), 64)
+	if movie.Rating == 0 {
+		return fmt.Errorf("OMDb did not return an IMDb rating for %s", movie.ID)
 	}
 	return nil
 }

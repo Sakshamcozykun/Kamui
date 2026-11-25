@@ -66,14 +66,18 @@ func playQuery(title string) error {
 	}
 
 	movie := movies[0]
-	_ = imdbClient.Details(context.Background(), &movie)
+	if err := imdbClient.Details(context.Background(), &movie); err != nil {
+		fmt.Fprintf(os.Stderr, "IMDb metadata unavailable: %v\n", err)
+	}
 	printMovieCard(movie)
 	if len(movies) > 1 {
 		movie, err = chooseMovie(movies)
 		if err != nil {
 			return err
 		}
-		_ = imdbClient.Details(context.Background(), &movie)
+		if err := imdbClient.Details(context.Background(), &movie); err != nil {
+			fmt.Fprintf(os.Stderr, "IMDb metadata unavailable: %v\n", err)
+		}
 		printMovieCard(movie)
 	}
 
