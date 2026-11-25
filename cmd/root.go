@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"flag"
 	"os"
 	"strings"
@@ -44,6 +45,10 @@ Subcommands:
 // cobra only knows about registered subcommands, so a bare title like
 // "kamui toy story 4" would otherwise be rejected as an unknown command.
 // We route anything that is not a known subcommand to the play path.
+//
+// Exception: if there is exactly one positional argument and it does not
+// contain a space, we treat it as a potential subcommand that doesn't exist
+// rather than a movie title, and show an error.
 func Execute() error {
 	args := os.Args[1:]
 	if len(args) == 0 {
@@ -71,6 +76,12 @@ func Execute() error {
 
 	if len(positional) == 0 {
 		return rootCmd.Execute()
+	}
+	// If there's exactly one positional arg with no spaces, it's likely not
+	// a movie title (most titles have at least one space). Treat it as an
+	// unknown command rather than searching for it.
+	if len(positional) == 1 && !strings.Contains(positional[0], " ") {
+		return fmt.Errorf("kamui: %q is not a movie title; see 'kamui help'", positional[0])
 	}
 	return playQuery(strings.Join(positional, " "))
 }
