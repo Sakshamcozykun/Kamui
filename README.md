@@ -68,11 +68,28 @@ in) and try again.
 After installation, if `kamui` is still not recognized, add
 `%USERPROFILE%\go\bin` to your user `PATH`, then reopen the terminal.
 
-```bash
+```cmd
 git clone https://github.com/sakshamcozykun/Kamui
 cd Kamui
-go install .
 ```
+
+In PowerShell, install the app and playback tools together:
+
+```powershell
+.\scripts\setup.ps1
+```
+
+If PowerShell blocks the script, allow it for this terminal session and retry:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\scripts\setup.ps1
+```
+
+The Windows setup script installs `mpv`, `yt-dlp`, and `ffmpeg` with `winget`,
+then installs Kamui. On Linux/macOS, run `sh scripts/setup.sh`; it uses apt,
+dnf, pacman, or Homebrew. Package installation may request administrator
+approval. Reopen your terminal afterward so PATH changes take effect.
 
 Go downloads and builds Kamui's Go dependencies automatically, including the
 terminal image renderer used for movie posters. No separate `catimg` install
@@ -122,7 +139,7 @@ kamui probe --json                     # machine-readable output
 
 kamui search "toy story 4"             # parallel search across live sites
 kamui search --max 30 --debug "dune 2" # limit sites, trace each attempt
-kamui doctor                           # check mpv, yt-dlp, and ffmpeg
+kamui doctor                           # check or install mpv, yt-dlp, and ffmpeg
 kamui music "artist - track"           # search and play audio
 kamui music "https://example/..."      # play audio from a supported URL
 kamui config                           # show configuration status
