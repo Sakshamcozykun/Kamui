@@ -2,7 +2,7 @@
 
 > Pull streams from any dimension, straight into your terminal.
 
-A Go CLI that searches free media sites listed in [FMHY](https://fmhy.net), then
+A Go learning project, Go CLI that searches free media sites listed in [FMHY](https://fmhy.net), then
 plays the result in `mpv`. Named after Obito's jutsu: pulling something out of
 one dimension into another.
 
