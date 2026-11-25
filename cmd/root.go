@@ -58,6 +58,15 @@ func Execute() error {
 	if isSubcommand(args[0]) {
 		return rootCmd.Execute()
 	}
+	if command, ok := closeCommand(args[0]); ok {
+		fmt.Fprintf(os.Stderr, "Rin caught that typo! Did you mean `kamui %s`?\n", command)
+		if len(args) > 1 {
+			fmt.Fprintf(os.Stderr, "Try: kamui %s %s\n", command, strings.Join(args[1:], " "))
+		} else {
+			fmt.Fprintf(os.Stderr, "Run `kamui %s --help` to see how it works.\n", command)
+		}
+		return nil
+	}
 
 	// Separate flags from the title so "kamui --max 10 toy story 4" works
 	// even though the title contains spaces.
@@ -79,6 +88,39 @@ func Execute() error {
 		return rootCmd.Execute()
 	}
 	return selectQuery(strings.Join(positional, " "))
+}
+
+func closeCommand(input string) (string, bool) {
+	commands := []string{"play", "select", "search", "sources", "probe", "music", "doctor", "config", "library", "poster"}
+	input = strings.ToLower(strings.TrimSpace(input))
+	best, bestDistance := "", 3
+	for _, candidate := range commands {
+		d := editDistance(input, candidate)
+		if d < bestDistance {
+			best, bestDistance = candidate, d
+		}
+	}
+	return best, bestDistance <= 2
+}
+
+func editDistance(a, b string) int {
+	prev := make([]int, len(b)+1)
+	for j := range prev {
+		prev[j] = j
+	}
+	for i, ra := range a {
+		current := make([]int, len(b)+1)
+		current[0] = i + 1
+		for j, rb := range b {
+			cost := 0
+			if ra != rb {
+				cost = 1
+			}
+			current[j+1] = min(current[j]+1, prev[j+1]+1, prev[j]+cost)
+		}
+		prev = current
+	}
+	return prev[len(b)]
 }
 
 func printWelcome() {
