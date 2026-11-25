@@ -38,8 +38,8 @@ func init() {
 	rootCmd.AddCommand(searchCmd)
 	searchCmd.Flags().StringVar(&searchSection, "section", "", "only search sections containing this text")
 	searchCmd.Flags().BoolVar(&searchRefresh, "refresh", false, "re-probe sites before searching")
-	searchCmd.Flags().IntVar(&searchWorkers, "workers", 12, "how many sites to search at once")
-	searchCmd.Flags().DurationVar(&searchTimeout, "timeout", 8*time.Second, "per-site timeout")
+	searchCmd.Flags().IntVar(&searchWorkers, "workers", 32, "how many sites to search at once")
+	searchCmd.Flags().DurationVar(&searchTimeout, "timeout", 3*time.Second, "per-request timeout")
 	searchCmd.Flags().IntVar(&searchLimit, "limit", 25, "maximum results to show")
 	searchCmd.Flags().IntVar(&searchMax, "max", 0, "only use the first N sources (0 = all)")
 	searchCmd.Flags().BoolVar(&searchDebug, "debug", false, "show what each site did")
@@ -76,9 +76,16 @@ func runSearch(cmd *cobra.Command, args []string) error {
 	cfg.Workers = searchWorkers
 	cfg.Timeout = searchTimeout
 	cfg.Limit = searchLimit
+	cfg.OnProgress = func(done, total int) {
+		if done == total || done%5 == 0 {
+			fmt.Fprintf(os.Stderr, "search progress: %d/%d sites checked\n", done, total)
+		}
+	}
 
 	fmt.Fprintf(os.Stderr, "searching %d live sites for %q...\n", len(alive), query)
-	results, attempts := search.Run(context.Background(), alive, query, cfg)
+	searchCtx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	results, attempts := search.Run(searchCtx, alive, query, cfg)
 
 	if searchDebug {
 		for _, a := range attempts {

@@ -42,11 +42,12 @@ type Attempt struct {
 
 // Config controls the run.
 type Config struct {
-	Workers  int
-	Timeout  time.Duration
-	MaxBytes int64
-	PerSite  int
-	Limit    int
+	Workers    int
+	Timeout    time.Duration
+	MaxBytes   int64
+	PerSite    int
+	Limit      int
+	OnProgress func(done, total int)
 }
 
 // DefaultConfig returns sensible defaults.
@@ -107,8 +108,9 @@ func Run(ctx context.Context, sources []fmhy.Source, query string, cfg Config) (
 
 	sem := make(chan struct{}, cfg.Workers)
 	var (
-		wg sync.WaitGroup
-		mu sync.Mutex // guards the shared results slice
+		wg   sync.WaitGroup
+		mu   sync.Mutex // guards the shared results slice
+		done int
 	)
 
 	for i, source := range sources {
@@ -124,6 +126,13 @@ func Run(ctx context.Context, sources []fmhy.Source, query string, cfg Config) (
 				mu.Lock()
 				results = append(results, found...)
 				mu.Unlock()
+			}
+			if cfg.OnProgress != nil {
+				mu.Lock()
+				done++
+				completed := done
+				mu.Unlock()
+				cfg.OnProgress(completed, len(sources))
 			}
 		}(i, source)
 	}

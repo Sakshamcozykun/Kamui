@@ -158,11 +158,18 @@ func playQuery(title string) error {
 	fmt.Fprintf(os.Stderr, "searching %d live sites...\n", len(alive))
 
 	cfg := search.DefaultConfig()
-	cfg.Workers = playWorkers
-	cfg.Timeout = playTimeout
+	cfg.Workers = 32
+	cfg.Timeout = 3 * time.Second
 	cfg.Limit = 10
+	cfg.OnProgress = func(done, total int) {
+		if done == total || done%5 == 0 {
+			fmt.Fprintf(os.Stderr, "search progress: %d/%d sites checked\n", done, total)
+		}
+	}
 
-	searchResults, _ := search.Run(context.Background(), alive, title, cfg)
+	searchCtx, cancelSearch := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancelSearch()
+	searchResults, _ := search.Run(searchCtx, alive, title, cfg)
 	if len(searchResults) == 0 {
 		return fmt.Errorf("no playable stream found")
 	}
@@ -225,13 +232,21 @@ func selectQuery(title string) error {
 	fmt.Fprintf(os.Stderr, "Searching %d sites for %q...\n", len(all), title)
 	cfg := search.DefaultConfig()
 	cfg.Workers = 12
-	cfg.Timeout = 6 * time.Second
+	cfg.Workers = 24
+	cfg.Timeout = 3 * time.Second
 	cfg.Limit = 10
+	cfg.OnProgress = func(done, total int) {
+		if done == total || done%5 == 0 {
+			fmt.Fprintf(os.Stderr, "search progress: %d/%d sites checked\n", done, total)
+		}
+	}
 	alive, err := aliveSources(all, false)
 	if err != nil {
 		return err
 	}
-	results, _ := search.Run(context.Background(), alive, title, cfg)
+	searchCtx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	results, _ := search.Run(searchCtx, alive, title, cfg)
 	if len(results) == 0 {
 		return fmt.Errorf("no results for %q", title)
 	}
