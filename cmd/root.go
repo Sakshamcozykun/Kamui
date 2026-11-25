@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"fmt"
 	"flag"
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -52,7 +52,8 @@ Subcommands:
 func Execute() error {
 	args := os.Args[1:]
 	if len(args) == 0 {
-		return rootCmd.Execute()
+		printWelcome()
+		return nil
 	}
 	if isSubcommand(args[0]) {
 		return rootCmd.Execute()
@@ -84,6 +85,36 @@ func Execute() error {
 		return fmt.Errorf("kamui: %q is not a movie title; see 'kamui help'", positional[0])
 	}
 	return playQuery(strings.Join(positional, " "))
+}
+
+func printWelcome() {
+	fmt.Fprintln(os.Stdout, `
+  ██╗  ██╗ █████╗ ███╗   ███╗██╗   ██╗██╗
+  ██║ ██╔╝██╔══██╗████╗ ████║██║   ██║██║
+  █████╔╝ ███████║██╔████╔██║██║   ██║██║
+  ██╔═██╗ ██╔══██║██║╚██╔╝██║██║   ██║██║
+  ██║  ██╗██║  ██║██║ ╚═╝ ██║╚██████╔╝██║
+  ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝ ╚═════╝ ╚═╝
+
+  Pull streams from FMHY-listed sites into your terminal.
+
+  COMMANDS
+  ──────────────────────────────────────────────────────────
+  kamui "movie title"              Search and play a title
+  kamui play "movie title"         Search and play a title
+  kamui select "movie title"       Search and choose a result
+  kamui search "movie title"       Search live sites, no playback
+  kamui sources                    List recommended sites
+  kamui probe                      Check site health
+
+  QUICK OPTIONS
+  ──────────────────────────────────────────────────────────
+  kamui play --pick "movie title"  Choose a result before playing
+  kamui search --debug "title"     Show each site's search attempt
+  kamui probe --refresh            Ignore cached health results
+
+  Run 'kamui help' for all flags and examples.
+`)
 }
 
 func splitFlags(args []string) (flags, positional []string) {

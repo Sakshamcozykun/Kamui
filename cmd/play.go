@@ -1,9 +1,11 @@
 package cmd
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -64,14 +66,15 @@ func playQuery(title string) error {
 	}
 
 	movie := movies[0]
+	_ = imdbClient.Details(context.Background(), &movie)
+	printMovieCard(movie)
 	if len(movies) > 1 {
-		fmt.Fprintf(os.Stderr, "found %d matches, using: %s (%d)\n", len(movies), movie.Title, movie.Year)
-		for i, m := range movies {
-			if i == 0 {
-				continue
-			}
-			fmt.Fprintf(os.Stderr, "  %d. %s (%d) %s\n", i+1, m.Title, m.Year, m.ID)
+		movie, err = chooseMovie(movies)
+		if err != nil {
+			return err
 		}
+		_ = imdbClient.Details(context.Background(), &movie)
+		printMovieCard(movie)
 	}
 
 	imdbID := movie.ID
@@ -99,7 +102,9 @@ func playQuery(title string) error {
 		wg.Add(1)
 		go func(a adapter.Adapter) {
 			defer wg.Done()
-			u, err := a.Extract(context.Background(), imdbID)
+			providerCtx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+			u, err := a.Extract(providerCtx, imdbID)
+			cancel()
 			resCh <- result{name: a.Name(), url: u, err: err}
 		}(a)
 	}
@@ -174,4 +179,21 @@ func playQuery(title string) error {
 	}
 
 	return fmt.Errorf("no playable stream found")
+}
+
+func chooseMovie(movies []imdb.Movie) (imdb.Movie, error) {
+	fmt.Fprintf(os.Stderr, "Found %d matches; choose the movie (0 to cancel):\n", len(movies))
+	for i, m := range movies {
+		fmt.Fprintf(os.Stderr, "  %d. %s (%d) %s\n", i+1, m.Title, m.Year, m.ID)
+	}
+	fmt.Fprint(os.Stderr, "Choice: ")
+	line, err := bufio.NewReader(os.Stdin).ReadString('\n')
+	if err != nil {
+		return imdb.Movie{}, fmt.Errorf("read movie choice: %w", err)
+	}
+	choice, err := strconv.Atoi(strings.TrimSpace(line))
+	if err != nil || choice < 1 || choice > len(movies) {
+		return imdb.Movie{}, fmt.Errorf("movie selection cancelled or invalid")
+	}
+	return movies[choice-1], nil
 }

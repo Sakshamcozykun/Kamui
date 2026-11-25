@@ -52,6 +52,7 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("usage: kamui search [flags] <title>")
 	}
 
+	fmt.Fprintf(os.Stderr, "loading FMHY sources for %q...\n", query)
 	all, err := loadSources()
 	if err != nil {
 		return err
@@ -64,6 +65,7 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("no sources matched")
 	}
 
+	fmt.Fprintf(os.Stderr, "checking %d sources for availability...\n", len(sources))
 	alive, err := aliveSources(sources, searchRefresh)
 	if err != nil {
 		return err
@@ -75,6 +77,7 @@ func runSearch(cmd *cobra.Command, args []string) error {
 	cfg.Timeout = searchTimeout
 	cfg.Limit = searchLimit
 
+	fmt.Fprintf(os.Stderr, "searching %d live sites for %q...\n", len(alive), query)
 	results, attempts := search.Run(context.Background(), alive, query, cfg)
 
 	if searchDebug {

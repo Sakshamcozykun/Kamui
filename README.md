@@ -52,10 +52,43 @@ therefore the tool never breaks" is not something this project claims.
 
 Requires Go 1.22+.
 
+### Windows prerequisite
+
+Install Go from [go.dev/dl](https://go.dev/dl/), then close and reopen
+Command Prompt or PowerShell so the Go commands are added to `PATH`. Verify
+the installation:
+
+```powershell
+go version
+```
+
+If Windows still cannot find `go`, restart the terminal (or sign out and back
+in) and try again.
+
+After installation, if `kamui` is still not recognized, add
+`%USERPROFILE%\go\bin` to your user `PATH`, then reopen the terminal.
+
 ```bash
 git clone https://github.com/sakshamcozykun/Kamui
 cd Kamui
-go build -o kamui .
+go install .
+```
+
+To run the checkout directly while developing instead of using the installed
+binary, use `go run .` from the repository directory.
+
+This installs `kamui` globally in Go's bin directory. Make sure that directory
+is on your `PATH` (`go env GOPATH`/`bin`, or `go env GOBIN` when it is set),
+then open a new terminal and run:
+
+```bash
+kamui
+```
+
+To install the latest version directly without cloning the repository:
+
+```bash
+go install github.com/sakshamcozykun/kamui@latest
 ```
 
 `mpv`, `yt-dlp` and `ffmpeg` become required once playback lands.

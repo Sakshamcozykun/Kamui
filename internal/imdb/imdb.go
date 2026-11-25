@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -21,6 +23,41 @@ type Movie struct {
 	Title  string
 	Year   int
 	Poster string
+	Rating float64
+}
+
+// Details fills in metadata that the suggestion endpoint does not provide.
+func (c *Client) Details(ctx context.Context, movie *Movie) error {
+	if movie == nil || movie.ID == "" {
+		return fmt.Errorf("missing movie id")
+	}
+	req, err := http.NewRequestWithContext(ctx, "GET", "https://www.imdb.com/title/"+movie.ID+"/", nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0")
+	resp, err := c.HTTP.Do(req)
+	if err != nil {
+		return fmt.Errorf("imdb details: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("imdb details: HTTP %d", resp.StatusCode)
+	}
+	body := make([]byte, 0, 256*1024)
+	buf := make([]byte, 32*1024)
+	for {
+		n, readErr := resp.Body.Read(buf)
+		body = append(body, buf[:n]...)
+		if readErr != nil {
+			break
+		}
+	}
+	match := regexp.MustCompile(`"ratingValue"\s*:\s*"?([0-9]+(?:\.[0-9]+)?)`).FindSubmatch(body)
+	if len(match) > 1 {
+		movie.Rating, _ = strconv.ParseFloat(string(match[1]), 64)
+	}
+	return nil
 }
 
 // Client searches IMDB without an API key.

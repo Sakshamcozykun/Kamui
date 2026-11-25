@@ -13,7 +13,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sakshamcozykun/kamui/internal/search"
-	"github.com/sakshamcozykun/kamui/internal/player"
 )
 
 var (
@@ -24,8 +23,8 @@ var (
 // selectCmd is the "select" subcommand.
 var selectCmd = &cobra.Command{
 	Use:   "select [title]",
-	Short: "Search and choose a movie result",
-	Long:  "Search FMHY sites and pick a result by number",
+	Short: "Choose a result and print its link to open in a browser",
+	Long:  "Search FMHY sites, choose a result, and print its page link for you to copy into a browser. Use 'kamui play' to attempt playback in mpv.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runSelect(strings.Join(args, " "))
 	},
@@ -78,13 +77,7 @@ func runSelect(title string) error {
 	fmt.Fprintf(os.Stderr, "Preferred quality: %s\n", pickQuality)
 	fmt.Fprintf(os.Stderr, "Preferred language: %s\n", pickLang)
 	fmt.Fprintf(os.Stderr, "Stream URL: %s\n", selected.URL)
-	streamURL, err := player.Extract(context.Background(), selected.URL, 30*time.Second)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Could not extract stream: %v\n", err)
-		fmt.Fprintf(os.Stderr, "URL: %s\n", selected.URL)
-	} else {
-		fmt.Fprintf(os.Stderr, "Extracted stream URL: %s\n", streamURL)
-	}
+	fmt.Fprintf(os.Stderr, "\nOpen this link in your browser:\n%s\n", selected.URL)
 	return nil
 }
 
