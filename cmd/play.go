@@ -125,6 +125,7 @@ func playQuery(title string) error {
 		// Try to play the stream with mpv.
 		if err := player.Play(context.Background(), r.url, movie.Title); err != nil {
 			fmt.Fprintf(os.Stderr, "  playback failed: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Browser link: %s\n", r.url)
 			// If this adapter failed, continue to the next one.
 			continue
 		}
@@ -173,12 +174,24 @@ func playQuery(title string) error {
 		fmt.Fprintf(os.Stderr, "playing: %s\n", r.Title)
 		if err := player.Play(context.Background(), streamURL, r.Title); err != nil {
 			fmt.Fprintf(os.Stderr, "  playback failed: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Browser link: %s\n", r.URL)
 			continue
 		}
 		return nil
 	}
 
 	return fmt.Errorf("no playable stream found")
+}
+
+func selectQuery(title string) error {
+	title = strings.TrimSpace(title)
+	if title == "" { return fmt.Errorf("usage: kamui <title>") }
+	fmt.Fprintf(os.Stderr, "Searching browser links for %q...\n", title)
+	all, err := loadSources(); if err != nil { return err }
+	results, _ := search.Run(context.Background(), all, title, search.DefaultConfig())
+	if len(results) == 0 { return fmt.Errorf("no results for %q", title) }
+	for i, r := range results { fmt.Fprintf(os.Stdout, "%d. %s — %s\n   %s\n", i+1, r.Site, r.Title, r.URL) }
+	return nil
 }
 
 func chooseMovie(movies []imdb.Movie) (imdb.Movie, error) {

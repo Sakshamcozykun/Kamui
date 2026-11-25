@@ -8,6 +8,7 @@ import (
 	_ "image/png"
 	"net/http"
 	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/sakshamcozykun/kamui/internal/imdb"
@@ -23,7 +24,7 @@ func printMovieCard(movie imdb.Movie) {
 	if movie.Poster == "" {
 		return
 	}
-	if os.Getenv("NO_COLOR") != "" {
+	if _, err := exec.LookPath("catimg"); err != nil || os.Getenv("NO_COLOR") != "" {
 		fmt.Fprintf(os.Stderr, "Poster: %s\n", movie.Poster)
 		return
 	}

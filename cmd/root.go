@@ -84,7 +84,7 @@ func Execute() error {
 	if len(positional) == 1 && !strings.Contains(positional[0], " ") {
 		return fmt.Errorf("kamui: %q is not a movie title; see 'kamui help'", positional[0])
 	}
-	return playQuery(strings.Join(positional, " "))
+	return selectQuery(strings.Join(positional, " "))
 }
 
 func printWelcome() {
@@ -100,18 +100,12 @@ func printWelcome() {
 
   COMMANDS
   ──────────────────────────────────────────────────────────
-  kamui "movie title"              Search and play a title
+  kamui "movie title"              Find a title and print browser links
   kamui play "movie title"         Search and play a title
   kamui select "movie title"       Search and choose a result
   kamui search "movie title"       Search live sites, no playback
   kamui sources                    List recommended sites
   kamui probe                      Check site health
-
-  QUICK OPTIONS
-  ──────────────────────────────────────────────────────────
-  kamui play --pick "movie title"  Choose a result before playing
-  kamui search --debug "title"     Show each site's search attempt
-  kamui probe --refresh            Ignore cached health results
 
   Run 'kamui help' for all flags and examples.
 `)
