@@ -61,6 +61,12 @@ func runSearch(cmd *cobra.Command, args []string) error {
 	if searchMax > 0 && len(sources) > searchMax {
 		sources = sources[:searchMax]
 	}
+	// Limit to top sources for fast probing — we only need a handful of alive
+	// providers, not all 762 sources.
+	const maxSearchSources = 30
+	if len(sources) > maxSearchSources {
+		sources = sources[:maxSearchSources]
+	}
 	if len(sources) == 0 {
 		return fmt.Errorf("no sources matched")
 	}
@@ -112,10 +118,35 @@ func aliveSources(sources []fmhy.Source, refresh bool) ([]fmhy.Source, error) {
 
 	results, ok := probe.Load(path, probeTTL)
 	if !ok || refresh {
+		// No usable cache — probe all sources fresh.
 		cfg := probe.DefaultConfig()
 		results = probe.Run(context.Background(), sources, cfg)
 		if err := probe.Save(path, results); err != nil {
 			fmt.Fprintf(os.Stderr, "kamui: could not cache probe results: %v\n", err)
+		}
+	} else {
+		// Cache exists but may not cover all sources. Probe any missing ones.
+		cachedByHost := make(map[string]probe.Result, len(results))
+		for _, r := range results {
+			cachedByHost[r.Source.Host()] = r
+		}
+
+		var missing []fmhy.Source
+		for _, s := range sources {
+			if _, ok := cachedByHost[s.Host()]; !ok {
+				missing = append(missing, s)
+			}
+		}
+		if len(missing) > 0 {
+			fmt.Fprintf(os.Stderr, "probing %d uncached sources...\n", len(missing))
+			cfg := probe.DefaultConfig()
+			cfg.Timeout = 5 * time.Second
+			cfg.Workers = 16
+			newResults := probe.Run(context.Background(), missing, cfg)
+			results = append(results, newResults...)
+			if err := probe.Save(path, results); err != nil {
+				fmt.Fprintf(os.Stderr, "kamui: could not cache probe results: %v\n", err)
+			}
 		}
 	}
 

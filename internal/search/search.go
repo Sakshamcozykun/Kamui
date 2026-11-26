@@ -21,6 +21,27 @@ import (
 	"github.com/sakshamcozykun/kamui/internal/fmhy"
 )
 
+// dedupeByHost keeps the highest-scored result per host domain.
+// This ensures cross-provider diversity — e.g. "Dune from Site A",
+// "Dune from Site B" — instead of three results from the same site.
+func dedupeByHost(results []Result) []Result {
+	seen := make(map[string]bool)
+	out := make([]Result, 0, len(results))
+	for _, r := range results {
+		u, err := url.Parse(r.URL)
+		if err != nil {
+			continue
+		}
+		host := u.Hostname()
+		if seen[host] {
+			continue // already have a result from this provider
+		}
+		seen[host] = true
+		out = append(out, r)
+	}
+	return out
+}
+
 // Result is one candidate page found on a source site.
 type Result struct {
 	Site  string
@@ -144,6 +165,10 @@ func Run(ctx context.Context, sources []fmhy.Source, query string, cfg Config) (
 		}
 		return a.Order - b.Order
 	})
+
+	// Dedupe by host domain for cross-provider diversity.
+	results = dedupeByHost(results)
+
 	if cfg.Limit > 0 && len(results) > cfg.Limit {
 		results = results[:cfg.Limit]
 	}

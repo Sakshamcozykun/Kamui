@@ -150,6 +150,12 @@ func playQuery(title string) error {
 	if playMax > 0 && len(sources) > playMax {
 		sources = sources[:playMax]
 	}
+	// Limit to top sources for fast probing — we only need a handful of alive
+	// providers, not all 762 sources.
+	const maxPlaySources = 30
+	if len(sources) > maxPlaySources {
+		sources = sources[:maxPlaySources]
+	}
 
 	alive, err := aliveSources(sources, false)
 	if err != nil {
@@ -180,7 +186,8 @@ func playQuery(title string) error {
 
 		streamURL, err := player.Extract(context.Background(), r.URL, 30*time.Second)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "  could not extract: %v\n", err)
+			fmt.Fprintf(os.Stderr, "  yt-dlp cannot extract (JavaScript site)\n")
+			fmt.Fprintf(os.Stderr, "  Browser link: %s\n", r.URL)
 			continue
 		}
 
@@ -190,9 +197,15 @@ func playQuery(title string) error {
 			fmt.Fprintf(os.Stderr, "Browser link: %s\n", r.URL)
 			continue
 		}
+		fmt.Fprintf(os.Stderr, "playing: %s (%d)\n", movie.Title, movie.Year)
 		return nil
 	}
 
+	fmt.Fprintln(os.Stderr, "\nNo direct stream could be extracted. All results are JavaScript-rendered sites.")
+	fmt.Fprintln(os.Stderr, "Open one of these browser links instead:")
+	for i, r := range searchResults {
+		fmt.Fprintf(os.Stderr, "  %d. %s — %s\n     %s\n", i+1, r.Site, r.Title, r.URL)
+	}
 	return fmt.Errorf("no playable stream found")
 }
 
