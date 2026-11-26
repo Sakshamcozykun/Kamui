@@ -2,11 +2,9 @@ package cmd
 
 import (
 	"fmt"
-	"net/http"
 	"os"
-	"path/filepath"
 
-	termimg "github.com/blacktop/go-termimg"
+	"github.com/cozykun/goimg"
 	"github.com/sakshamcozykun/kamui/internal/imdb"
 )
 
@@ -34,32 +32,10 @@ func printMovieCard(movie imdb.Movie) {
 	}
 }
 
+// printPoster renders a poster image using goimg, which auto-detects the
+// best terminal protocol (sixel, kitty, iTerm2, or halfblock fallback).
 func printPoster(posterURL string) error {
-	resp, err := http.Get(posterURL)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("poster HTTP %d", resp.StatusCode)
-	}
-	temp, err := os.CreateTemp("", "kamui-poster-*.img")
-	if err != nil {
-		return err
-	}
-	name := temp.Name()
-	defer os.Remove(name)
-	if _, err := temp.ReadFrom(resp.Body); err != nil {
-		temp.Close()
-		return err
-	}
-	if err := temp.Close(); err != nil {
-		return err
-	}
 	fmt.Fprintln(os.Stderr, "Poster:")
-	img, err := termimg.Open(filepath.Clean(name))
-	if err != nil {
-		return err
-	}
-	return img.Width(32).Height(40).Print()
+	player := goimg.New(goimg.Config{})
+	return player.ViewImage(posterURL)
 }
