@@ -21,4 +21,4 @@ require (
 	golang.org/x/term v0.48.0 // indirect
 )
 
-replace github.com/cozykun/goimg => /home/cozykun/goimg
+replace github.com/cozykun/goimg => github.com/Sakshamcozykun/goimg v0.0.0-20261126192543-5e4ae20e8644

@@ -1,3 +1,5 @@
+github.com/Sakshamcozykun/goimg v0.0.0-20261126192543-5e4ae20e8644 h1:o4hb9QoUy0OJCMca03hfy+xeHRrZylyK9J7zAIXMsJg=
+github.com/Sakshamcozykun/goimg v0.0.0-20261126192543-5e4ae20e8644/go.mod h1:AxPtHUeiCqvIn9zB9oBkZ53UDUbesCFz1PjCyd6UIJI=
 github.com/cpuguy83/go-md2man/v2 v2.0.6/go.mod h1:oOW0eioCTA6cOiMLiUPZOpcVxMig6NIQQ7OS05n1F4g=
 github.com/go-rod/rod v0.116.2 h1:A5t2Ky2A+5eD/ZJQr1EfsQSe5rms5Xof/qj296e+ZqA=
 github.com/go-rod/rod v0.116.2/go.mod h1:H+CMO9SCNc2TJ2WfrG+pKhITz57uGNYU43qYHh438Mg=
