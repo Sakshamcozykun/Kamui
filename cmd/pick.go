@@ -57,10 +57,9 @@ func runSelect(title string) error {
 		return err
 	}
 
-	// Limit to top sources for fast probing — we only need a handful of
-	// alive providers, not all 762 sources.
+	// Search enough sources to find multiple providers across different sites.
 	searchSources := all
-	const maxSearchSources = 30
+	const maxSearchSources = 80
 	if len(searchSources) > maxSearchSources {
 		searchSources = searchSources[:maxSearchSources]
 	}

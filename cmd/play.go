@@ -150,9 +150,10 @@ func playQuery(title string) error {
 	if playMax > 0 && len(sources) > playMax {
 		sources = sources[:playMax]
 	}
-	// Limit to top sources for fast probing — we only need a handful of alive
-	// providers, not all 762 sources.
-	const maxPlaySources = 30
+	// Search enough sources to find multiple providers. If we only check 20,
+	// we might find just one match. Checking 60–100 gives cross-provider
+	// diversity: Dune from Reelix, Dune from Chillflix, Dune from ArrowTV.
+	const maxPlaySources = 80
 	if len(sources) > maxPlaySources {
 		sources = sources[:maxPlaySources]
 	}
@@ -238,7 +239,8 @@ func selectQuery(title string) error {
 	if err != nil {
 		return err
 	}
-	const maxBrowserSearchSources = 20
+	// Search enough sources to find results from multiple providers.
+	const maxBrowserSearchSources = 80
 	if len(all) > maxBrowserSearchSources {
 		all = all[:maxBrowserSearchSources]
 	}

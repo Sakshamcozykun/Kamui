@@ -61,9 +61,8 @@ func runSearch(cmd *cobra.Command, args []string) error {
 	if searchMax > 0 && len(sources) > searchMax {
 		sources = sources[:searchMax]
 	}
-	// Limit to top sources for fast probing — we only need a handful of alive
-	// providers, not all 762 sources.
-	const maxSearchSources = 30
+	// Search enough sources to find cross-provider diversity.
+	const maxSearchSources = 80
 	if len(sources) > maxSearchSources {
 		sources = sources[:maxSearchSources]
 	}
