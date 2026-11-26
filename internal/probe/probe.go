@@ -69,7 +69,7 @@ func DefaultConfig() Config {
 	}
 }
 
-const userAgent = "kamui/0.2 (+https://github.com/sakshamcozykun/kamui)"
+const userAgent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36 kamui/0.2"
 
 // Run checks every source concurrently.
 //

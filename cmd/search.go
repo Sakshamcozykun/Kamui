@@ -139,7 +139,7 @@ func aliveSources(sources []fmhy.Source, refresh bool) ([]fmhy.Source, error) {
 		if len(missing) > 0 {
 			fmt.Fprintf(os.Stderr, "probing %d uncached sources...\n", len(missing))
 			cfg := probe.DefaultConfig()
-			cfg.Timeout = 5 * time.Second
+			cfg.Timeout = 12 * time.Second // some sites (movy.sx) are slow
 			cfg.Workers = 16
 			newResults := probe.Run(context.Background(), missing, cfg)
 			results = append(results, newResults...)
