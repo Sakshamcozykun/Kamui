@@ -32,9 +32,11 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\scripts\setup.ps1
 ```
 
-The setup script installs Kamui plus `mpv`, `yt-dlp`, and `ffmpeg` with
-`winget`. Open a new terminal after setup. If `kamui` is not found, ensure
-`%USERPROFILE%\go\bin` is on your user `PATH`.
+The setup script installs Kamui, then asks which features you want. Movie
+search and browser links need no extra media tools. Selecting terminal movie
+playback, YouTube streaming, or music/radio installs `mpv`, `yt-dlp`, and
+`ffmpeg` with `winget`. Open a new terminal after setup. If `kamui` is not
+found, ensure `%USERPROFILE%\go\bin` is on your user `PATH`.
 
 ### Linux and macOS
 
@@ -46,13 +48,20 @@ cd Kamui
 sh scripts/setup.sh
 ```
 
-The script uses apt, dnf, pacman, or Homebrew to install playback tools and
-then installs Kamui. Package installation may ask for administrator approval.
+The script installs Kamui, then shows the same feature menu as Windows. It uses
+apt, dnf, pacman, or Homebrew to install playback tools only when you select a
+playback feature. Package installation may ask for administrator approval.
+At the feature menu, press Enter for movie search and browser links only, enter
+multiple choices such as `2,4`, or type `all`.
 
-For a stream-focused install from the repository root, `bash install.sh` checks
-for the required Go version, installs `mpv`, `yt-dlp`, and `ffmpeg` with the
-system package manager, then builds Kamui into `$HOME/.local/bin`. Add that
-directory to `PATH` if needed.
+From the repository root, `bash install.sh` checks the Go version, builds
+Kamui into `$HOME/.local/bin`, then asks which features you want. It installs
+`mpv`, `yt-dlp`, and `ffmpeg` only if you select terminal playback, YouTube
+streaming, or music/radio. Add `$HOME/.local/bin` to `PATH` if needed.
+
+If you choose only movie search and browser links, the media tools are skipped.
+The other built-in commands remain available either way. Install playback tools
+later by running `kamui doctor`.
 
 To install the latest Go module without cloning:
 
