@@ -49,6 +49,11 @@ sh scripts/setup.sh
 The script uses apt, dnf, pacman, or Homebrew to install playback tools and
 then installs Kamui. Package installation may ask for administrator approval.
 
+For a stream-focused install from the repository root, `bash install.sh` checks
+for the required Go version, installs `mpv`, `yt-dlp`, and `ffmpeg` with the
+system package manager, then builds Kamui into `$HOME/.local/bin`. Add that
+directory to `PATH` if needed.
+
 To install the latest Go module without cloning:
 
 ```sh
@@ -66,6 +71,7 @@ kamui "Dune"                  # show movie details and browser links
 kamui play "Dune"             # attempt playback
 kamui select "Dune"           # choose a result and print its browser link
 kamui music "artist - track"  # find tracks, then play or start radio
+kamui stream "https://..."    # resolve a supported URL and play in mpv
 kamui doctor                  # check or install playback tools
 ```
 
@@ -78,6 +84,7 @@ kamui doctor                  # check or install playback tools
 | `kamui select <title>` | Choose a result and print its page link |
 | `kamui search <title>` | Search reachable sources without playback |
 | `kamui music <query>` | Choose among music results and play audio or a radio mix |
+| `kamui stream <url>` | Resolve direct media, YouTube, Vimeo, or Twitch URLs and play them in `mpv` |
 | `kamui sources` | List sources, with optional section and starred filters |
 | `kamui probe` | Check reachability; cached results can be refreshed |
 | `kamui doctor` | Check dependencies and offer to install missing tools |
@@ -110,6 +117,29 @@ for every individual site. JavaScript-only result pages may not return results.
 `kamui doctor` checks that `mpv`, `yt-dlp`, and `ffmpeg` are installed and
 available. The poster preview uses terminal text rendering; its appearance
 depends on terminal color and character support.
+
+### Stream resolvers
+
+`kamui stream <url>` accepts direct MP4, WebM, Matroska, HLS (`.m3u8`), and
+DASH (`.mpd`) URLs, plus supported pages from YouTube, Vimeo, and Twitch.
+Platform extraction runs locally through `yt-dlp`; `mpv` receives the resolved
+media URL. No external decoding API is used. Access controls and DRM are not
+bypassed, and a site can still reject playback because of login, region, age,
+or URL expiration requirements.
+
+The initial platform adapters target three widely used general video services:
+
+| Platform | Why it is included | What makes URL resolution non-trivial |
+| --- | --- | --- |
+| YouTube | Broad public video and live-video coverage | Playback URLs can be short-lived and served through adaptive formats or manifests; yt-dlp tracks the site's changing player logic. |
+| Vimeo | Common creator, portfolio, and embedded video hosting | Privacy settings and adaptive HLS/DASH delivery can affect which media URLs are available to the current viewer. |
+| Twitch | Major live-stream and video-on-demand platform | Live playback uses changing HLS playlists and session-specific access details; live and archived video URLs behave differently. |
+
+These are supported video platforms rather than a ranking of third-party
+embedded hosts. yt-dlp's extractor list is broad and changes over time; support
+for any site is not guaranteed. Add another `stream.Resolver` and register it
+in `internal/stream` to extend the pipeline. Use the stream command only with
+media you have permission to access.
 
 ## Development
 

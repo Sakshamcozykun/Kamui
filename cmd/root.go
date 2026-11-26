@@ -31,6 +31,7 @@ Subcommands:
   probe     check which sources are reachable
   search    search every live site in parallel (no playback)
   play      search and play a title
+  stream    resolve a supported media URL and play it in mpv
 `,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) == 0 {
@@ -91,7 +92,7 @@ func Execute() error {
 }
 
 func closeCommand(input string) (string, bool) {
-	commands := []string{"play", "select", "search", "sources", "probe", "music", "doctor", "config", "library", "poster"}
+	commands := []string{"play", "select", "search", "sources", "probe", "stream", "music", "doctor", "config", "library", "poster"}
 	input = strings.ToLower(strings.TrimSpace(input))
 	best, bestDistance := "", 3
 	for _, candidate := range commands {
@@ -138,6 +139,7 @@ func printWelcome() {
   ──────────────────────────────────────────────────────────
   kamui "movie title"              Find a title and print browser links
   kamui play "movie title"         Search and play a title
+  kamui stream <url>               Resolve a supported URL and play in mpv
   kamui music "artist - track"     Search and play music
   kamui select "movie title"       Search and choose a result
   kamui search "movie title"       Search live sites, no playback
