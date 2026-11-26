@@ -68,7 +68,14 @@ type Config struct {
 	MaxBytes   int64
 	PerSite    int
 	Limit      int
+	NoDedupe   bool // skip host dedupe (caller will dedupe after its own filtering)
 	OnProgress func(done, total int)
+}
+
+// DedupeByHost keeps the highest-scored result per host domain.
+// Exported so callers can dedupe after their own filtering.
+func DedupeByHost(results []Result) []Result {
+	return dedupeByHost(results)
 }
 
 // DefaultConfig returns sensible defaults.
@@ -167,7 +174,9 @@ func Run(ctx context.Context, sources []fmhy.Source, query string, cfg Config) (
 	})
 
 	// Dedupe by host domain for cross-provider diversity.
-	results = dedupeByHost(results)
+	if !cfg.NoDedupe {
+		results = dedupeByHost(results)
+	}
 
 	if cfg.Limit > 0 && len(results) > cfg.Limit {
 		results = results[:cfg.Limit]

@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"net/url"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -210,6 +212,67 @@ func playQuery(title string) error {
 	return fmt.Errorf("no playable stream found")
 }
 
+// yearRe extracts a 4-digit year from a search result title.
+var yearRe = regexp.MustCompile(`\b(19|20)\d{2}\b`)
+
+// sequelRe matches sequel indicators in titles.
+var sequelRe = regexp.MustCompile(`(?i)\b(part\s*[234]|part\s*(two|three|four|five)|[234]\s*:|\bII\b|\bIII\b|\bIV\b|sequel)\b`)
+
+// excludedHosts are domains that are not media streaming sites.
+var excludedHosts = []string{"github.com", "wikipedia.org", "reddit.com", "imdb.com"}
+
+// filterByMovie filters search results to match a specific movie (title + year).
+// It excludes sequels when the target is not itself a sequel, and filters by
+// the selected year so "Dune (2021)" returns Dune Part 1, not Part 2/3.
+func filterByMovie(results []search.Result, movie imdb.Movie) []search.Result {
+	out := make([]search.Result, 0, len(results))
+	yearStr := strconv.Itoa(movie.Year)
+	movieTitleLower := strings.ToLower(movie.Title)
+	targetIsSequel := sequelRe.MatchString(movie.Title)
+
+	for _, r := range results {
+		t := strings.ToLower(r.Title)
+
+		// Skip non-media domains (GitHub, Wikipedia, etc.).
+		if u, err := url.Parse(r.URL); err == nil {
+			host := strings.ToLower(u.Hostname())
+			excluded := false
+			for _, bad := range excludedHosts {
+				if host == bad || strings.HasSuffix(host, "."+bad) {
+					excluded = true
+					break
+				}
+			}
+			if excluded {
+				continue
+			}
+		}
+
+		// Skip sequels when the target is the original film.
+		if !targetIsSequel && sequelRe.MatchString(t) {
+			continue
+		}
+
+		// If the result title contains a year, it must match the selected movie.
+		if found := yearRe.FindString(r.Title); found != "" && found != yearStr {
+			continue
+		}
+
+		// Ensure the title contains the movie name (base words).
+		if !strings.Contains(t, movieTitleLower) {
+			// Allow partial match on first significant word (e.g. "dune" matches
+			// "Dune 7.8 • 2021 • Movie")
+			words := strings.Fields(movieTitleLower)
+			if len(words) > 0 && !strings.Contains(t, words[0]) {
+				continue
+			}
+		}
+
+		out = append(out, r)
+	}
+	return out
+}
+
 func selectQuery(title string) error {
 	title = strings.TrimSpace(title)
 	if title == "" {
@@ -218,6 +281,7 @@ func selectQuery(title string) error {
 	recordHistory(title)
 	metaClient := imdb.NewClient()
 	movies, metaErr := metaClient.Search(context.Background(), title)
+	var selectedMovie *imdb.Movie
 	if metaErr != nil {
 		fmt.Fprintf(os.Stderr, "Movie metadata unavailable: %v\n", metaErr)
 	} else if len(movies) > 0 {
@@ -232,6 +296,7 @@ func selectQuery(title string) error {
 			fmt.Fprintf(os.Stderr, "IMDb rating lookup failed: %v\n", err)
 		}
 		printMovieCard(movie)
+		selectedMovie = &movie
 	}
 	fmt.Fprintf(os.Stderr, "Searching browser links for %q...\n", title)
 	fmt.Fprintln(os.Stderr, "Loading source catalogue...")
@@ -239,17 +304,17 @@ func selectQuery(title string) error {
 	if err != nil {
 		return err
 	}
-	// Search enough sources to find results from multiple providers.
-	const maxBrowserSearchSources = 80
+	// Search enough sources to find 5 results matching the exact movie.
+	const maxBrowserSearchSources = 150
 	if len(all) > maxBrowserSearchSources {
 		all = all[:maxBrowserSearchSources]
 	}
 	fmt.Fprintf(os.Stderr, "Searching %d sites for %q...\n", len(all), title)
 	cfg := search.DefaultConfig()
-	cfg.Workers = 12
 	cfg.Workers = 24
 	cfg.Timeout = 3 * time.Second
-	cfg.Limit = 10
+	cfg.Limit = 50 // get many results so filtering can find the right ones
+	cfg.NoDedupe = true // dedupe AFTER filtering by movie/year
 	cfg.OnProgress = func(done, total int) {
 		if done == total || done%5 == 0 {
 			fmt.Fprintf(os.Stderr, "search progress: %d/%d sites checked\n", done, total)
@@ -264,6 +329,28 @@ func selectQuery(title string) error {
 	results, _ := search.Run(searchCtx, alive, title, cfg)
 	if len(results) == 0 {
 		return fmt.Errorf("no results for %q", title)
+	}
+
+	// Filter results to match the selected movie (year + title), then dedupe
+	// by host. This order matters: a site may have both Dune 1 and Dune 2 pages,
+	// and we want the Dune 1 page, not just the highest-scored one.
+	if selectedMovie != nil {
+		filtered := filterByMovie(results, *selectedMovie)
+		if len(filtered) > 0 {
+			fmt.Fprintf(os.Stderr, "Filtered to %d results matching %s (%d)...\n", len(filtered), selectedMovie.Title, selectedMovie.Year)
+			results = search.DedupeByHost(filtered)
+		} else {
+			fmt.Fprintf(os.Stderr, "No exact matches for %s (%d); showing all results.\n", selectedMovie.Title, selectedMovie.Year)
+			results = search.DedupeByHost(results)
+		}
+	} else {
+		results = search.DedupeByHost(results)
+	}
+
+	// Show top 5 results from different providers.
+	const topResults = 5
+	if len(results) > topResults {
+		results = results[:topResults]
 	}
 	for i, r := range results {
 		fmt.Fprintf(os.Stdout, "%d. %s — %s\n   %s\n", i+1, r.Site, r.Title, r.URL)
