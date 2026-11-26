@@ -29,7 +29,7 @@ var (
 
 var probeCmd = &cobra.Command{
 	Use:   "probe",
-	Short: "Check which FMHY-listed sites are actually alive",
+	Short: "Check which listed sources are reachable",
 	RunE:  runProbe,
 }
 

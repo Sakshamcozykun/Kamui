@@ -1,4 +1,4 @@
-// Command kamui pulls streams from FMHY-listed sites into your terminal.
+// Command kamui searches media sources and provides terminal playback tools.
 package main
 
 import (

@@ -1,8 +1,8 @@
-// Package probe checks which FMHY-listed sites are reachable and what kind of
+// Package probe checks which listed sources are reachable and what kind of
 // site each one is.
 //
-// A third of a typical FMHY list is dead or blocked from any given network.
-// Probing turns that list from "300 links someone found once" into live data.
+// Many listed sources may be dead or blocked from a given network. Probing
+// turns a static directory into live reachability data.
 package probe
 
 import (

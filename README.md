@@ -1,193 +1,122 @@
-# kamui
+# Kamui
 
-> Pull streams from any dimension, straight into your terminal.
+> Media discovery and playback from your terminal.
 
-A Go learning project, Go CLI that searches free media sites listed in [FMHY](https://fmhy.net), then
-plays the result in `mpv`. Named after Obito's jutsu: pulling something out of
-one dimension into another.
+Kamui is a cross-platform Go CLI for finding media sources, checking whether
+they respond, viewing movie metadata, and playing supported links with `mpv`.
+Its source catalogue is adapted from the community-maintained [FMHY
+directory](https://fmhy.net).
 
-## Status
+## Features
 
-Early. Building in public, one layer at a time.
-
-| Layer | State |
-| --- | --- |
-| Wiki fetch + ETag cache | done |
-| Markdown → source list parser | done |
-| Concurrent reachability probe + tier fingerprinting | done |
-| Generic parallel search across live sites | done |
-| TMDb title resolution | planned |
-| `mpv` playback | planned |
-
-```
-$ kamui probe --max 12
-STATUS   TIER        CODE  MS    HOST
-alive    p-stream    200   3404  zenox.lol
-alive    plain       505   618   arrowtv.net
-blocked  cloudflare  403   561   popcornmovies.st
-dead     unknown     -     timeout  cinelite.xyz
-```
-
-```
-$ kamui search --max 20 "toy story 4"
-searching 14 live sites...
-SCORE  SITE       TITLE                           URL
-1.80   Reelix     Toy Story 4 7.5 • 2019 • Movie  https://reelix.ac/movie/toy-story-4-...
-1.30   Chillflix  Toy Story 4 7.5 · 2019 · Movie  https://chillflix.lol/movie/301528
-1.00   ArrowTV    ⭐ 7.5 Toy Story 4 2019         https://arrowtv.net/movie/301528
-```
-
-## What FMHY is, and isn't
-
-FMHY is a community-curated wiki of **links to websites**. It tells you what
-exists and, via stars and ordering, which ones people rate. It is not an API:
-it does not know how to search any of those sites.
-
-That distinction sets the design. FMHY supplies **discovery and ranking**;
-kamui supplies **execution and health tracking**. A third of the listed sites
-are typically dead or blocked at any given moment, so "the wiki updates itself,
-therefore the tool never breaks" is not something this project claims.
+- Search and rank results from reachable sources
+- Open a selected result in your browser or try playback in `mpv`
+- Search and play audio through `yt-dlp` and `mpv`, including a similar-song radio option
+- Check source reachability and cache probe results
+- Show OMDb ratings, runtime, genre, plot, and poster previews
+- Save a watchlist and recent search history
+- Install and diagnose playback tools from the CLI
 
 ## Install
 
-Requires Go 1.26+.
+Go 1.26+ is required to build from source.
 
-### Windows prerequisite
+### Windows
 
-Install Go from [go.dev/dl](https://go.dev/dl/), then close and reopen
-Command Prompt or PowerShell so the Go commands are added to `PATH`. Verify
-the installation:
+Install Go from [go.dev/dl](https://go.dev/dl/) and reopen PowerShell. Then:
 
 ```powershell
-go version
-```
-
-If Windows still cannot find `go`, restart the terminal (or sign out and back
-in) and try again.
-
-After installation, if `kamui` is still not recognized, add
-`%USERPROFILE%\go\bin` to your user `PATH`, then reopen the terminal.
-
-```cmd
 git clone https://github.com/sakshamcozykun/Kamui
 cd Kamui
-```
-
-In PowerShell, install the app and playback tools together:
-
-```powershell
-.\scripts\setup.ps1
-```
-
-If PowerShell blocks the script, allow it for this terminal session and retry:
-
-```powershell
 Set-ExecutionPolicy -Scope Process Bypass
 .\scripts\setup.ps1
 ```
 
-The Windows setup script installs `mpv`, `yt-dlp`, and `ffmpeg` with `winget`,
-then installs Kamui. On Linux/macOS, run `sh scripts/setup.sh`; it uses apt,
-dnf, pacman, or Homebrew. Package installation may request administrator
-approval. Reopen your terminal afterward so PATH changes take effect.
+The setup script installs Kamui plus `mpv`, `yt-dlp`, and `ffmpeg` with
+`winget`. Open a new terminal after setup. If `kamui` is not found, ensure
+`%USERPROFILE%\go\bin` is on your user `PATH`.
 
-Go downloads and builds Kamui's Go dependencies automatically, including the
-terminal image renderer used for movie posters. No separate `catimg` install
-command is needed. Full-resolution posters require a terminal that supports
-Kitty, iTerm2, or Sixel graphics; other terminals may show a text fallback.
+### Linux and macOS
 
-To run the checkout directly while developing instead of using the installed
-binary, use `go run .` from the repository directory.
+Install Go 1.26+ and the system package manager for your platform, then:
 
-This installs `kamui` globally in Go's bin directory. Make sure that directory
-is on your `PATH` (`go env GOPATH`/`bin`, or `go env GOBIN` when it is set),
-then open a new terminal and run:
-
-Movie ratings and OMDb poster metadata require an OMDb API key. After
-installing Kamui, run `kamui poster`; it prompts for your key and saves it in
-your per-user Kamui config. Get a key at
-[OMDb](https://www.omdbapi.com/apikey.aspx). The `OMDB_API_KEY` environment
-variable can also be used instead of the saved key.
-
-```bash
-kamui
+```sh
+git clone https://github.com/sakshamcozykun/Kamui
+cd Kamui
+sh scripts/setup.sh
 ```
 
-To install the latest version directly without cloning the repository:
+The script uses apt, dnf, pacman, or Homebrew to install playback tools and
+then installs Kamui. Package installation may ask for administrator approval.
 
-```bash
+To install the latest Go module without cloning:
+
+```sh
 go install github.com/sakshamcozykun/kamui@latest
 ```
 
-`mpv`, `yt-dlp` and `ffmpeg` become required once playback lands.
+That installs the Go CLI only. Install `mpv`, `yt-dlp`, and `ffmpeg` separately
+if you want playback features.
 
-## Usage
+## Quick start
 
-`kamui` uses Go's standard `flag` package, which stops parsing at the first
-positional argument. **Put flags before the title.**
-
-```bash
-kamui sources                          # every listed site
-kamui sources --starred                # FMHY's top picks only
-kamui sources --section anime          # filter by section name
-kamui sources --max 10                 # cap the output
-
-kamui probe                            # check every site (cached for 12h)
-kamui probe --section multi-server     # check one section
-kamui probe --refresh                  # check again, ignoring the cache
-kamui probe --json                     # machine-readable output
-
-kamui search "toy story 4"             # parallel search across live sites
-kamui search --max 30 --debug "dune 2" # limit sites, trace each attempt
-kamui doctor                           # check or install mpv, yt-dlp, and ffmpeg
-kamui music "artist - track"           # search and play audio
-kamui music "https://example/..."      # play audio from a supported URL
-kamui config                           # show configuration status
-kamui library add "dune"               # add to watchlist
-kamui library remove "dune"            # remove from watchlist
-kamui library watchlist                # show saved titles
-kamui library history                  # show recent searches
+```sh
+kamui                         # command overview
+kamui "Dune"                  # show movie details and browser links
+kamui play "Dune"             # attempt playback
+kamui select "Dune"           # choose a result and print its browser link
+kamui music "artist - track"  # find tracks, then play or start radio
+kamui doctor                  # check or install playback tools
 ```
 
-Wiki pages are cached under `~/.cache/kamui/fmhy/` and revalidated with
-`If-None-Match`, so repeat runs cost one conditional request instead of a full
-download. Probe results go to the user cache directory. Watchlist and recent
-search history are stored under the user config directory.
+## Commands
+
+| Command | Purpose |
+| --- | --- |
+| `kamui <title>` | Show movie metadata and matching browser links |
+| `kamui play <title>` | Try to play a title in `mpv`; prints a browser link if playback fails |
+| `kamui select <title>` | Choose a result and print its page link |
+| `kamui search <title>` | Search reachable sources without playback |
+| `kamui music <query>` | Choose among music results and play audio or a radio mix |
+| `kamui sources` | List sources, with optional section and starred filters |
+| `kamui probe` | Check reachability; cached results can be refreshed |
+| `kamui doctor` | Check dependencies and offer to install missing tools |
+| `kamui library add/remove <title>` | Manage your watchlist |
+| `kamui library watchlist/history` | View saved titles and recent searches |
+| `kamui config` | Show configuration status |
+| `kamui poster` | Configure the OMDb API key |
+
+Use `kamui <command> --help` for flags and examples. Put flags before the title.
+
+## Configuration
+
+Movie ratings and details use OMDb. Get an API key at
+[omdbapi.com/apikey.aspx](https://www.omdbapi.com/apikey.aspx), then run:
+
+```sh
+kamui poster
+```
+
+Kamui saves the key in your per-user config. Alternatively, set
+`OMDB_API_KEY` in the environment.
+
+Wiki and probe caches are kept under the operating system's user cache
+directory. Watchlist and search history are stored in the user config folder.
+
+## Search and playback notes
+
+Kamui uses generic server-rendered HTML search patterns rather than a scraper
+for every individual site. JavaScript-only result pages may not return results.
+`kamui doctor` checks that `mpv`, `yt-dlp`, and `ffmpeg` are installed and
+available. The poster preview uses terminal text rendering; its appearance
+depends on terminal color and character support.
+
+## Development
+
+```sh
+go test ./...
+go build ./...
+```
 
 GitHub Actions tests and builds on Linux and Windows. Pushing a `v*` tag builds
 release binaries for Windows, Linux, and macOS (amd64 and arm64).
-
-## Layout
-
-```
-kamui/
-├── main.go                  # thin entry point
-├── cmd/                     # subcommands
-│   ├── root.go              # dispatch
-│   ├── common.go            # cache dir, source filtering
-│   ├── sources.go
-│   ├── probe.go
-│   └── search.go
-└── internal/
-    ├── fmhy/                # wiki fetching, caching, parsing
-    ├── probe/               # concurrent HTTP checks, tier fingerprints
-    └── search/              # concurrent generic search
-```
-
-## How search works
-
-There is no per-site scraper. For each live source, kamui tries four common
-search URL shapes (`/search?q=`, `/?s=`, `/search/<slug>`, `/search?keyword=`),
-then looks at server-rendered `<a>` tags whose **visible text** contains every
-word of the query. First shape with a match wins.
-
-That means plain HTML sites work with zero configuration, and JavaScript-only
-sites return nothing. That is a deliberate trade: it stays honest and needs no
-new code when FMHY adds a site. Site-specific adapters are the next step for
-the families that the probe identifies as sharing an open-source codebase.
-
-## Notes
-
-A personal project for learning Go: packages and interfaces, error handling,
-HTTP caching, goroutines, worker pools, and cancellation. Built in the open,
-a layer at a time.

@@ -7,8 +7,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 	"text/tabwriter"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -24,7 +24,7 @@ var (
 var selectCmd = &cobra.Command{
 	Use:   "select [title]",
 	Short: "Choose a result and print its link to open in a browser",
-	Long:  "Search FMHY sites, choose a result, and print its page link for you to copy into a browser. Use 'kamui play' to attempt playback in mpv.",
+	Long:  "Search available sources, choose a result, and print its page link for you to open in a browser. Use 'kamui play' to attempt playback in mpv.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runSelect(strings.Join(args, " "))
 	},

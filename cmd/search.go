@@ -30,7 +30,7 @@ var (
 
 var searchCmd = &cobra.Command{
 	Use:   "search [flags] <title>",
-	Short: "Search every live FMHY site in parallel",
+	Short: "Search reachable sources in parallel",
 	RunE:  runSearch,
 }
 
@@ -52,7 +52,7 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("usage: kamui search [flags] <title>")
 	}
 
-	fmt.Fprintf(os.Stderr, "loading FMHY sources for %q...\n", query)
+	fmt.Fprintf(os.Stderr, "loading source catalogue for %q...\n", query)
 	all, err := loadSources()
 	if err != nil {
 		return err

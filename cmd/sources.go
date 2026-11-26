@@ -19,14 +19,14 @@ var (
 
 var sourcesCmd = &cobra.Command{
 	Use:   "sources",
-	Short: "List the sites FMHY recommends",
+	Short: "List available sources",
 	RunE:  runSources,
 }
 
 func init() {
 	rootCmd.AddCommand(sourcesCmd)
 	sourcesCmd.Flags().StringVar(&sourcesSection, "section", "", "only show sections containing this text (case-insensitive)")
-	sourcesCmd.Flags().BoolVar(&sourcesStarred, "starred", false, "only show FMHY-starred picks")
+	sourcesCmd.Flags().BoolVar(&sourcesStarred, "starred", false, "show highlighted sources only")
 	sourcesCmd.Flags().IntVar(&sourcesMax, "max", 0, "stop after N sources (0 = all)")
 }
 

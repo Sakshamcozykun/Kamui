@@ -20,15 +20,15 @@ var (
 
 var rootCmd = &cobra.Command{
 	Use:   "kamui [title]",
-	Short: "Pull streams from FMHY-listed sites into your terminal",
-	Long: `kamui pulls streams from FMHY-listed free media sites into your terminal.
+	Short: "Search media sources and play results from your terminal",
+	Long: `kamui searches listed media sources and provides playback from your terminal.
 
 With no subcommand, a title is searched and played:
   kamui "toy story 4"
 
 Subcommands:
-  sources   list the sites FMHY recommends
-  probe     check which of those sites are actually alive
+  sources   list available sources
+  probe     check which sources are reachable
   search    search every live site in parallel (no playback)
   play      search and play a title
 `,
@@ -132,7 +132,7 @@ func printWelcome() {
   ██║  ██╗██║  ██║██║ ╚═╝ ██║╚██████╔╝██║
   ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝ ╚═════╝ ╚═╝
 
-  Pull streams from FMHY-listed sites into your terminal.
+  Search media sources and play results from your terminal.
 
   COMMANDS
   ──────────────────────────────────────────────────────────

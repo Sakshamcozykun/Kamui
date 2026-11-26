@@ -22,8 +22,8 @@ import (
 // playCmd is the "play" subcommand.
 var playCmd = &cobra.Command{
 	Use:   "play [title]",
-	Short: "Search and play a title from FMHY-listed sites",
-	Long: `kamui play searches live FMHY sites and tries to play the result in mpv.
+	Short: "Search and play a title from available sources",
+	Long: `kamui play searches reachable sources and tries to play the result in mpv.
 
 If a TMDB/API key is configured, the title is first resolved to an IMDB ID,
 then embed providers (VidSrc, 2Embed, VidLink) are tried in parallel.
@@ -220,7 +220,7 @@ func selectQuery(title string) error {
 		printMovieCard(movie)
 	}
 	fmt.Fprintf(os.Stderr, "Searching browser links for %q...\n", title)
-	fmt.Fprintln(os.Stderr, "Loading FMHY source list...")
+	fmt.Fprintln(os.Stderr, "Loading source catalogue...")
 	all, err := loadSources()
 	if err != nil {
 		return err

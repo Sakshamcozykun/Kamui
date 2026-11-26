@@ -1,4 +1,4 @@
-// Package search fans a title out across many FMHY-listed sites at once.
+// Package search fans a title out across a set of listed sources concurrently.
 //
 // It deliberately uses generic search patterns rather than site-specific
 // scrapers. That means it works on many plain, server-rendered sites with
