@@ -35,9 +35,15 @@ Examples:
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(os.Stderr, "Resolved with %s; starting mpv...\n", provider)
-		if err := player.Play(cmd.Context(), resolved, "Kamui stream"); err != nil {
-			return fmt.Errorf("mpv playback failed: %w", err)
+		fmt.Fprintf(os.Stderr, "Using %s resolver; starting mpv...\n", provider)
+		var playErr error
+		if provider == "direct media" {
+			playErr = player.Play(cmd.Context(), resolved, "Kamui stream")
+		} else {
+			playErr = player.PlayPage(cmd.Context(), resolved, "Kamui stream", ytDLPPath)
+		}
+		if playErr != nil {
+			return fmt.Errorf("mpv playback failed: %w", playErr)
 		}
 		return nil
 	},

@@ -77,3 +77,27 @@ func Play(ctx context.Context, streamURL, title string) error {
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }
+
+// PlayPage asks mpv's yt-dlp hook to resolve a supported site page. Leaving
+// format selection to the hook lets mpv consume separate audio/video formats
+// and avoids requiring a pre-merged format to exist.
+func PlayPage(ctx context.Context, pageURL, title, ytDLPPath string) error {
+	mpvPath, err := LookPathTool("mpv")
+	if err != nil {
+		return fmt.Errorf("mpv not found; install it and ensure it is on PATH (run 'kamui doctor')")
+	}
+	if ytDLPPath == "" {
+		return fmt.Errorf("yt-dlp not found; install it and ensure it is on PATH (run 'kamui doctor')")
+	}
+
+	cmd := exec.CommandContext(ctx, mpvPath,
+		"--ytdl=yes",
+		"--script-opts=ytdl_hook-ytdl_path="+ytDLPPath,
+		"--force-media-title="+title,
+		pageURL,
+	)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}

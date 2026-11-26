@@ -2,14 +2,11 @@
 package stream
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"net/url"
-	"os/exec"
 	"path"
 	"strings"
-	"time"
 )
 
 // Resolver recognizes and resolves one class of media URL.
@@ -75,8 +72,8 @@ func (DirectMedia) Match(u *url.URL) bool {
 
 func (DirectMedia) Resolve(_ context.Context, rawURL string) (string, error) { return rawURL, nil }
 
-// YtDlpPlatform delegates a platform's changing page and manifest details to
-// yt-dlp, then passes the resulting playable URL to mpv.
+// YtDlpPlatform recognizes platforms handled by mpv's yt-dlp hook. mpv owns
+// format selection so it can pair separate audio/video tracks when needed.
 type YtDlpPlatform struct {
 	Label     string
 	Hosts     []string
@@ -100,29 +97,8 @@ func (p YtDlpPlatform) Resolve(ctx context.Context, rawURL string) (string, erro
 	if p.YtDLPPath == "" {
 		return "", fmt.Errorf("yt-dlp is required; install it and ensure it is on PATH (run 'kamui doctor')")
 	}
-	ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, p.YtDLPPath,
-		"--no-update", "--no-warnings", "--no-playlist",
-		"--format", "best", "--get-url", rawURL,
-	)
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	out, err := cmd.Output()
-	if err != nil {
-		message := strings.TrimSpace(stderr.String())
-		if message != "" {
-			return "", fmt.Errorf("yt-dlp could not resolve %s: %s", p.Label, message)
-		}
-		return "", fmt.Errorf("yt-dlp could not resolve %s: %w", p.Label, err)
+	if err := ctx.Err(); err != nil {
+		return "", err
 	}
-	lines := strings.Fields(string(out))
-	if len(lines) != 1 {
-		return "", fmt.Errorf("yt-dlp returned %d media URLs; expected one combined stream", len(lines))
-	}
-	resolved, err := url.Parse(lines[0])
-	if err != nil || (resolved.Scheme != "http" && resolved.Scheme != "https") || resolved.Hostname() == "" {
-		return "", fmt.Errorf("yt-dlp returned an invalid media URL")
-	}
-	return resolved.String(), nil
+	return rawURL, nil
 }
