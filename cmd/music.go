@@ -9,9 +9,9 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/sakshamcozykun/kamui/internal/player"
@@ -24,6 +24,7 @@ var musicCmd = &cobra.Command{
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		query := strings.TrimSpace(strings.Join(args, " "))
+		input := bufio.NewReader(os.Stdin)
 		mpvPath, err := player.LookPathTool("mpv")
 		if err != nil {
 			return fmt.Errorf("mpv is required for music playback; install it and ensure it is on PATH (run 'kamui doctor')")
@@ -47,7 +48,7 @@ var musicCmd = &cobra.Command{
 			}
 			if !tracksHaveArtist(tracks) {
 				fmt.Fprint(os.Stderr, "Artist name (leave blank to keep searching): ")
-				artist, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+				artist, _ := input.ReadString('\n')
 				artist = strings.TrimSpace(artist)
 				if artist != "" {
 					tracks, err = searchTracks(artist+" "+query, ytDLPPath)
@@ -64,7 +65,7 @@ var musicCmd = &cobra.Command{
 				fmt.Fprintf(os.Stderr, "%d. %s — %s\n", i+1, t.Title, artist)
 			}
 			fmt.Fprint(os.Stderr, "Choose track (1-5, or 0 to cancel): ")
-			line, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+			line, _ := input.ReadString('\n')
 			choice, err := strconv.Atoi(strings.TrimSpace(line))
 			if err != nil || choice < 1 || choice > len(tracks) {
 				return fmt.Errorf("music selection cancelled or invalid")
@@ -77,7 +78,7 @@ var musicCmd = &cobra.Command{
 			}
 			title = track.Title
 			fmt.Fprint(os.Stderr, "Play track [p] or start similar-song radio [r]? ")
-			mode, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+			mode, _ := input.ReadString('\n')
 			radio = strings.EqualFold(strings.TrimSpace(mode), "r")
 			if radio {
 				if track.ID == "" {
@@ -96,64 +97,133 @@ var musicCmd = &cobra.Command{
 		fmt.Fprintf(os.Stderr, "Starting %s...\n", label)
 
 		if radio {
-			// Radio: let mpv's ytdl_hook handle each URL.
-			mpvArgs := []string{"--no-video", "--ytdl=yes",
-				"--script-opts=ytdl_hook-ytdl_path=" + ytDLPPath,
-				"--force-media-title=Kamui Radio"}
-			mpvArgs = append(mpvArgs, radioURLs...)
+			// Resolve every queued track up front so mpv receives direct
+			// stream URLs with the headers YouTube requires.
+			streams := resolveRadioStreams(cmd.Context(), ytDLPPath, radioURLs)
+			mpvArgs := []string{
+				"--no-video",
+				"--force-media-title=Kamui Radio",
+				"--script-opts-append=ytdl_hook-exclude=googlevideo",
+			}
+			for _, stream := range streams {
+				if stream != nil && stream.HeaderFields != "" {
+					mpvArgs = append(mpvArgs, "--http-header-fields="+stream.HeaderFields)
+					break
+				}
+			}
+			for i, stream := range streams {
+				if stream != nil && stream.URL != "" {
+					mpvArgs = append(mpvArgs, stream.URL)
+				} else {
+					mpvArgs = append(mpvArgs, radioURLs[i])
+				}
+			}
 			mpv := exec.CommandContext(cmd.Context(), mpvPath, mpvArgs...)
 			mpv.Stdin, mpv.Stdout, mpv.Stderr = os.Stdin, os.Stdout, os.Stderr
 			return mpv.Run()
 		}
 
-		// Single track: download audio in chunks (YouTube blocks full-file
-		// requests from this network), save to temp file, then play with mpv.
-		audioPath, err := downloadAudio(cmd.Context(), ytDLPPath, playURL)
+		// Single track: stream directly from YouTube. yt-dlp resolves the
+		// stream URL and its required HTTP headers; mpv does the streaming.
+		stream, err := extractAudioStream(cmd.Context(), ytDLPPath, playURL)
 		if err != nil {
 			return err
 		}
-		defer os.Remove(audioPath)
-
-		mpv := exec.CommandContext(cmd.Context(), mpvPath,
-			"--no-video", "--force-media-title="+title, audioPath)
+		mpvArgs := []string{
+			"--no-video",
+			"--force-media-title=" + title,
+			// The URL is already resolved; don't let ytdl_hook fetch it again.
+			"--script-opts-append=ytdl_hook-exclude=googlevideo",
+		}
+		if stream.HeaderFields != "" {
+			mpvArgs = append(mpvArgs, "--http-header-fields="+stream.HeaderFields)
+		}
+		mpvArgs = append(mpvArgs, stream.URL)
+		mpv := exec.CommandContext(cmd.Context(), mpvPath, mpvArgs...)
 		mpv.Stdin, mpv.Stdout, mpv.Stderr = os.Stdin, os.Stdout, os.Stderr
 		return mpv.Run()
 	},
 }
 
-// downloadAudio uses yt-dlp to download audio to a temp file with retries,
-// then returns the path for mpv to play. yt-dlp handles all required headers.
-func downloadAudio(ctx context.Context, ytDLPPath, pageURL string) (string, error) {
-	dir, err := os.MkdirTemp("", "kamui-audio-")
-	if err != nil {
-		return "", err
-	}
-	outPattern := filepath.Join(dir, "audio.%(ext)s")
+// audioStream is a resolved media URL plus the headers mpv must send when
+// streaming it. YouTube's googlevideo URLs are rejected without them.
+type audioStream struct {
+	URL          string
+	HeaderFields string
+}
+
+// extractAudioStream asks yt-dlp for the best audio URL and its HTTP headers,
+// then converts those headers into mpv's comma-separated --http-header-fields
+// format. Comma-containing values are reduced to their first token because
+// mpv splits the option on commas.
+func extractAudioStream(ctx context.Context, ytDLPPath, pageURL string) (*audioStream, error) {
+	ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
+	defer cancel()
 
 	cmd := exec.CommandContext(ctx, ytDLPPath,
 		"--no-update", "--no-warnings", "--no-playlist",
-		"--retries", "5", "--fragment-retries", "5",
-		"--http-chunk-size", "1M",
-		"-f", "bestaudio/best", "-o", outPattern, pageURL,
+		"-J", "-f", "bestaudio/best", pageURL,
 	)
-	cmd.Stderr = os.Stderr
-	cmd.Stdout = os.Stderr
-	if err := cmd.Run(); err != nil {
-		os.RemoveAll(dir)
-		return "", fmt.Errorf("audio download failed: %w", err)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
+	if err != nil {
+		detail := strings.TrimSpace(stderr.String())
+		if detail != "" {
+			return nil, fmt.Errorf("yt-dlp extraction failed: %s", detail)
+		}
+		return nil, fmt.Errorf("yt-dlp extraction failed: %w", err)
 	}
 
-	entries, err := os.ReadDir(dir)
-	if err != nil || len(entries) == 0 {
-		os.RemoveAll(dir)
-		return "", fmt.Errorf("no audio file downloaded")
+	var info struct {
+		URL         string            `json:"url"`
+		HTTPHeaders map[string]string `json:"http_headers"`
 	}
-	path := filepath.Join(dir, entries[0].Name())
-	info, _ := os.Stat(path)
-	if info != nil {
-		fmt.Fprintf(os.Stderr, "Downloaded %s (%.1f MB)\n", entries[0].Name(), float64(info.Size())/(1<<20))
+	if err := json.Unmarshal(out, &info); err != nil {
+		return nil, fmt.Errorf("parse yt-dlp info: %w", err)
 	}
-	return path, nil
+	if info.URL == "" {
+		return nil, fmt.Errorf("yt-dlp returned no audio URL")
+	}
+
+	fields := make([]string, 0, len(info.HTTPHeaders))
+	for _, key := range []string{"User-Agent", "Accept", "Accept-Language", "Sec-Fetch-Mode", "Referer", "Origin"} {
+		value, ok := info.HTTPHeaders[key]
+		if !ok || value == "" {
+			continue
+		}
+		if strings.Contains(value, ",") {
+			if key == "Accept" {
+				value = "*/*"
+			} else {
+				value = strings.TrimSpace(strings.Split(value, ",")[0])
+			}
+		}
+		fields = append(fields, key+": "+value)
+	}
+	return &audioStream{URL: info.URL, HeaderFields: strings.Join(fields, ",")}, nil
+}
+
+// resolveRadioStreams resolves radio queue entries in parallel, falling back
+// to the original watch URL when extraction fails.
+func resolveRadioStreams(ctx context.Context, ytDLPPath string, urls []string) []*audioStream {
+	streams := make([]*audioStream, len(urls))
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, 4)
+	for i, pageURL := range urls {
+		wg.Add(1)
+		go func(i int, pageURL string) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			stream, err := extractAudioStream(ctx, ytDLPPath, pageURL)
+			if err == nil {
+				streams[i] = stream
+			}
+		}(i, pageURL)
+	}
+	wg.Wait()
+	return streams
 }
 
 type musicTrack struct {
