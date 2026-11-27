@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -89,20 +90,70 @@ var musicCmd = &cobra.Command{
 			}
 		}
 		label := "audio playback"
-		mpvArgs := []string{"--no-video", "--ytdl=yes", "--script-opts=ytdl_hook-ytdl_path=" + ytDLPPath}
 		if radio {
 			label = fmt.Sprintf("radio (%d tracks queued)", len(radioURLs))
-			title = "Kamui Radio"
-			mpvArgs = append(mpvArgs, "--force-media-title="+title)
-			mpvArgs = append(mpvArgs, radioURLs...)
-		} else {
-			mpvArgs = append(mpvArgs, "--force-media-title="+title, playURL)
 		}
 		fmt.Fprintf(os.Stderr, "Starting %s...\n", label)
-		mpv := exec.CommandContext(cmd.Context(), mpvPath, mpvArgs...)
+
+		if radio {
+			// Radio: let mpv's ytdl_hook handle each URL.
+			mpvArgs := []string{"--no-video", "--ytdl=yes",
+				"--script-opts=ytdl_hook-ytdl_path=" + ytDLPPath,
+				"--force-media-title=Kamui Radio"}
+			mpvArgs = append(mpvArgs, radioURLs...)
+			mpv := exec.CommandContext(cmd.Context(), mpvPath, mpvArgs...)
+			mpv.Stdin, mpv.Stdout, mpv.Stderr = os.Stdin, os.Stdout, os.Stderr
+			return mpv.Run()
+		}
+
+		// Single track: download audio in chunks (YouTube blocks full-file
+		// requests from this network), save to temp file, then play with mpv.
+		audioPath, err := downloadAudio(cmd.Context(), ytDLPPath, playURL)
+		if err != nil {
+			return err
+		}
+		defer os.Remove(audioPath)
+
+		mpv := exec.CommandContext(cmd.Context(), mpvPath,
+			"--no-video", "--force-media-title="+title, audioPath)
 		mpv.Stdin, mpv.Stdout, mpv.Stderr = os.Stdin, os.Stdout, os.Stderr
 		return mpv.Run()
 	},
+}
+
+// downloadAudio uses yt-dlp to download audio to a temp file with retries,
+// then returns the path for mpv to play. yt-dlp handles all required headers.
+func downloadAudio(ctx context.Context, ytDLPPath, pageURL string) (string, error) {
+	dir, err := os.MkdirTemp("", "kamui-audio-")
+	if err != nil {
+		return "", err
+	}
+	outPattern := filepath.Join(dir, "audio.%(ext)s")
+
+	cmd := exec.CommandContext(ctx, ytDLPPath,
+		"--no-update", "--no-warnings", "--no-playlist",
+		"--retries", "5", "--fragment-retries", "5",
+		"--http-chunk-size", "1M",
+		"-f", "bestaudio/best", "-o", outPattern, pageURL,
+	)
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stderr
+	if err := cmd.Run(); err != nil {
+		os.RemoveAll(dir)
+		return "", fmt.Errorf("audio download failed: %w", err)
+	}
+
+	entries, err := os.ReadDir(dir)
+	if err != nil || len(entries) == 0 {
+		os.RemoveAll(dir)
+		return "", fmt.Errorf("no audio file downloaded")
+	}
+	path := filepath.Join(dir, entries[0].Name())
+	info, _ := os.Stat(path)
+	if info != nil {
+		fmt.Fprintf(os.Stderr, "Downloaded %s (%.1f MB)\n", entries[0].Name(), float64(info.Size())/(1<<20))
+	}
+	return path, nil
 }
 
 type musicTrack struct {
