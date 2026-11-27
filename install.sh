@@ -20,6 +20,11 @@ mkdir -p "$install_dir"
 go build -o "$install_dir/kamui" .
 printf 'Kamui installed at %s/kamui\n' "$install_dir"
 
+printf 'Caching the source catalogue and checking the top 50 sites...\n'
+if ! "$install_dir/kamui" probe --max 50 --timeout 12s; then
+  printf 'Initial source cache could not be completed; Kamui will populate it on first search.\n' >&2
+fi
+
 cat <<'EOF'
 
 Choose the features you want:

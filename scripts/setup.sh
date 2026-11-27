@@ -16,6 +16,11 @@ fi
 echo 'Installing Kamui...'
 go install .
 
+echo 'Caching the source catalogue and checking the top 50 sites...'
+if ! go run . probe --max 50 --timeout 12s; then
+  echo 'Initial source cache could not be completed; Kamui will populate it on first search.' >&2
+fi
+
 cat <<'EOF'
 
 Choose the features you want:

@@ -39,7 +39,7 @@ func init() {
 	searchCmd.Flags().StringVar(&searchSection, "section", "", "only search sections containing this text")
 	searchCmd.Flags().BoolVar(&searchRefresh, "refresh", false, "re-probe sites before searching")
 	searchCmd.Flags().IntVar(&searchWorkers, "workers", 32, "how many sites to search at once")
-	searchCmd.Flags().DurationVar(&searchTimeout, "timeout", 3*time.Second, "per-request timeout")
+	searchCmd.Flags().DurationVar(&searchTimeout, "timeout", 8*time.Second, "per-request timeout")
 	searchCmd.Flags().IntVar(&searchLimit, "limit", 25, "maximum results to show")
 	searchCmd.Flags().IntVar(&searchMax, "max", 0, "only use the first N sources (0 = all)")
 	searchCmd.Flags().BoolVar(&searchDebug, "debug", false, "show what each site did")
@@ -62,7 +62,7 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		sources = sources[:searchMax]
 	}
 	// Search enough sources to find cross-provider diversity.
-	const maxSearchSources = 80
+	const maxSearchSources = 200
 	if len(sources) > maxSearchSources {
 		sources = sources[:maxSearchSources]
 	}
@@ -91,6 +91,16 @@ func runSearch(cmd *cobra.Command, args []string) error {
 	searchCtx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
 	results, attempts := search.Run(searchCtx, alive, query, cfg)
+	// Fast searches often miss slow sites. If there are no matches, retry the
+	// full selected set with a longer per-request timeout, including sites the
+	// quick availability probe classified as dead.
+	if len(results) == 0 {
+		fmt.Fprintln(os.Stderr, "no matches yet; retrying sources with a 15s timeout...")
+		cfg.Timeout = 15 * time.Second
+		retryCtx, cancelRetry := context.WithTimeout(context.Background(), 2*time.Minute)
+		results, attempts = search.Run(retryCtx, sources, query, cfg)
+		cancelRetry()
+	}
 
 	if searchDebug {
 		for _, a := range attempts {

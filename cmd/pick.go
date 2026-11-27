@@ -24,9 +24,9 @@ var (
 
 // checkedResult pairs a search result with stream extraction outcome.
 type checkedResult struct {
-	r     search.Result
+	r      search.Result
 	stream string
-	err   error
+	err    error
 }
 
 // selectCmd is the "select" subcommand.
@@ -59,7 +59,7 @@ func runSelect(title string) error {
 
 	// Search enough sources to find multiple providers across different sites.
 	searchSources := all
-	const maxSearchSources = 80
+	const maxSearchSources = 200
 	if len(searchSources) > maxSearchSources {
 		searchSources = searchSources[:maxSearchSources]
 	}
@@ -75,6 +75,13 @@ func runSelect(title string) error {
 	cfg.Timeout = 8 * time.Second
 	cfg.Limit = 20
 	results, _ := search.Run(context.Background(), alive, title, cfg)
+	if len(results) == 0 {
+		fmt.Fprintln(os.Stderr, "no matches yet; retrying sources with a 15s timeout...")
+		cfg.Timeout = 15 * time.Second
+		retryCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		results, _ = search.Run(retryCtx, searchSources, title, cfg)
+		cancel()
+	}
 	if len(results) == 0 {
 		return fmt.Errorf("no results for %q", title)
 	}

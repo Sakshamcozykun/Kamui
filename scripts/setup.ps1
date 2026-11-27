@@ -14,6 +14,10 @@ Write-Host 'Installing Kamui...'
 go install .
 if ($LASTEXITCODE -ne 0) { throw "go install failed (exit $LASTEXITCODE)" }
 
+Write-Host 'Caching the source catalogue and checking the top 50 sites...'
+go run . probe --max 50 --timeout 12s
+if ($LASTEXITCODE -ne 0) { Write-Warning 'Initial source cache could not be completed; Kamui will populate it on first search.' }
+
 Write-Host ''
 Write-Host 'Choose the features you want:'
 Write-Host '  1) Movie search and browser links (no extra media tools)'

@@ -155,7 +155,7 @@ func playQuery(title string) error {
 	// Search enough sources to find multiple providers. If we only check 20,
 	// we might find just one match. Checking 60–100 gives cross-provider
 	// diversity: Dune from Reelix, Dune from Chillflix, Dune from ArrowTV.
-	const maxPlaySources = 80
+	const maxPlaySources = 200
 	if len(sources) > maxPlaySources {
 		sources = sources[:maxPlaySources]
 	}
@@ -179,6 +179,13 @@ func playQuery(title string) error {
 	searchCtx, cancelSearch := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancelSearch()
 	searchResults, _ := search.Run(searchCtx, alive, title, cfg)
+	if len(searchResults) == 0 {
+		fmt.Fprintln(os.Stderr, "no matches yet; retrying sources with a 15s timeout...")
+		cfg.Timeout = 15 * time.Second
+		retryCtx, cancelRetry := context.WithTimeout(context.Background(), 2*time.Minute)
+		searchResults, _ = search.Run(retryCtx, sources, title, cfg)
+		cancelRetry()
+	}
 	if len(searchResults) == 0 {
 		return fmt.Errorf("no playable stream found")
 	}
@@ -313,7 +320,7 @@ func selectQuery(title string) error {
 	cfg := search.DefaultConfig()
 	cfg.Workers = 24
 	cfg.Timeout = 3 * time.Second
-	cfg.Limit = 50 // get many results so filtering can find the right ones
+	cfg.Limit = 50      // get many results so filtering can find the right ones
 	cfg.NoDedupe = true // dedupe AFTER filtering by movie/year
 	cfg.OnProgress = func(done, total int) {
 		if done == total || done%5 == 0 {
