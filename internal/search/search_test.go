@@ -74,6 +74,15 @@ func TestScoreMatchRejectsUnrelated(t *testing.T) {
 	}
 }
 
+func TestScoreMatchUsesWholeWords(t *testing.T) {
+	if _, ok := scoreMatch("Red Sonja – Berserker (2014)", "/other-comics/red-sonja-berserker-2014/", []string{"berserk"}, false); ok {
+		t.Error("berserk should not match berserker")
+	}
+	if _, ok := scoreMatch("Berserk", "/manga/berserk", []string{"berserk"}, false); !ok {
+		t.Error("exact title should match")
+	}
+}
+
 func TestCleanText(t *testing.T) {
 	got := cleanText(`Toy <b>Story</b> 4 &amp; Beyond  \n`)
 	if got != "Toy Story 4 & Beyond \\n" {

@@ -274,6 +274,18 @@ func fetchAndMatch(ctx context.Context, client *http.Client, target, base string
 	return out, resp.StatusCode, anchors, ""
 }
 
+// containsWord reports whether token appears as a whole word in s. Plain
+// substring matching would let "berserk" match "Berserker", which produces
+// wrong titles; boundaries use Unicode letters/numbers so non-Latin scripts
+// keep working.
+func containsWord(s, token string) bool {
+	if token == "" {
+		return false
+	}
+	re := regexp.MustCompile(`(^|[^\p{L}\p{N}])` + regexp.QuoteMeta(token) + `([^\p{L}\p{N}]|$)`)
+	return re.MatchString(s)
+}
+
 func scoreMatch(title, href string, tokens []string, starred bool) (float64, bool) {
 	lowerTitle := strings.ToLower(title)
 	lowerHref := strings.ToLower(href)
@@ -283,7 +295,7 @@ func scoreMatch(title, href string, tokens []string, starred bool) (float64, boo
 	// useless text like "Most relevant" or "Click here".
 	titleHits := 0
 	for _, token := range tokens {
-		if strings.Contains(lowerTitle, token) {
+		if containsWord(lowerTitle, token) {
 			titleHits++
 		}
 	}

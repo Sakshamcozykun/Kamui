@@ -44,10 +44,57 @@ func filter(sources []fmhy.Source, section string, starredOnly bool) []fmhy.Sour
 // sections (downloads, torrents, tracking databases) are not playable sites,
 // so they are skipped.
 func animeSources(sources []fmhy.Source) []fmhy.Source {
+	return sourcesMatching(sources, func(path string) bool {
+		return strings.Contains(path, "anime streaming")
+	})
+}
+
+// mangaSources keeps manga and comic reading sites, skipping readers, tools,
+// trackers and recommendation lists because those do not host titles.
+func mangaSources(sources []fmhy.Source) []fmhy.Source {
+	return sourcesMatching(sources, func(path string) bool {
+		if !strings.Contains(path, "manga") && !strings.Contains(path, "comics") {
+			return false
+		}
+		for _, skip := range []string{"reader", "tool", "tracking", "recommendation", "database"} {
+			if strings.Contains(path, skip) {
+				return false
+			}
+		}
+		return true
+	})
+}
+
+// novelSources keeps light novel and web novel reading sites.
+func novelSources(sources []fmhy.Source) []fmhy.Source {
+	return sourcesMatching(sources, func(path string) bool {
+		return strings.Contains(path, "light novels") || strings.Contains(path, "web novels")
+	})
+}
+
+// bookSources keeps general ebook sites and public-domain/PDF libraries,
+// skipping readers, tools and Kindle utilities.
+func bookSources(sources []fmhy.Source) []fmhy.Source {
+	return sourcesMatching(sources, func(path string) bool {
+		if strings.Contains(path, "audiobook") || strings.Contains(path, "fanfiction") {
+			return false
+		}
+		for _, skip := range []string{"reader", "tool", "kindle", "tracking", "recommendation"} {
+			if strings.Contains(path, skip) {
+				return false
+			}
+		}
+		return strings.Contains(path, "ebook") ||
+			strings.Contains(path, "public domain") ||
+			strings.Contains(path, "pdf search") ||
+			strings.Contains(path, "calibre")
+	})
+}
+
+func sourcesMatching(sources []fmhy.Source, match func(path string) bool) []fmhy.Source {
 	out := make([]fmhy.Source, 0, len(sources))
 	for _, s := range sources {
-		path := strings.ToLower(strings.Join(s.Path, " "))
-		if strings.Contains(path, "anime streaming") {
+		if match(strings.ToLower(strings.Join(s.Path, " "))) {
 			out = append(out, s)
 		}
 	}
@@ -57,8 +104,17 @@ func animeSources(sources []fmhy.Source) []fmhy.Source {
 // loadSources fetches (or reads from cache) the video wiki and returns its
 // deduplicated sources.
 func loadSources() ([]fmhy.Source, error) {
+	return loadDoc(fmhy.DocVideo)
+}
+
+// loadReadingSources fetches the books/comics wiki.
+func loadReadingSources() ([]fmhy.Source, error) {
+	return loadDoc(fmhy.DocReading)
+}
+
+func loadDoc(doc string) ([]fmhy.Source, error) {
 	client := fmhy.NewClient(cacheDir())
-	body, err := client.Fetch(context.Background(), fmhy.DocVideo)
+	body, err := client.Fetch(context.Background(), doc)
 	if err != nil {
 		return nil, err
 	}

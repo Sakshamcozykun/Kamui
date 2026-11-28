@@ -93,6 +93,9 @@ kamui doctor                  # check or install playback tools
 | `kamui select <title>` | Choose a result and print its page link |
 | `kamui search <title>` | Search reachable sources without playback |
 | `kamui anime <title>` | Search only anime streaming sources (including donghua) |
+| `kamui manga <title>` | Search only manga and comic reading sources |
+| `kamui book <title>` | Search ebook libraries and public-domain/PDF sources |
+| `kamui novel <title>` | Search light novel and web novel sources |
 | `kamui music <query>` | Choose among music results and play audio or a radio mix |
 | `kamui stream <url>` | Resolve direct media, YouTube, Vimeo, or Twitch URLs and play them in `mpv` |
 | `kamui sources` | List sources, with optional section and starred filters |

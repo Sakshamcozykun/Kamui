@@ -31,6 +31,9 @@ Subcommands:
   probe     check which sources are reachable
   search    search every live site in parallel (no playback)
   anime     search anime streaming sites only
+  manga     search manga and comic sources
+  book      search ebook sources
+  novel     search light novel and web novel sources
   play      search and play a title
   stream    resolve a supported media URL and play it in mpv
 `,
@@ -93,7 +96,7 @@ func Execute() error {
 }
 
 func closeCommand(input string) (string, bool) {
-	commands := []string{"play", "select", "search", "anime", "sources", "probe", "stream", "music", "doctor", "config", "library", "poster"}
+	commands := []string{"play", "select", "search", "anime", "manga", "book", "novel", "sources", "probe", "stream", "music", "doctor", "config", "library", "poster"}
 	input = strings.ToLower(strings.TrimSpace(input))
 	best, bestDistance := "", 3
 	for _, candidate := range commands {
@@ -145,6 +148,9 @@ func printWelcome() {
   kamui select "movie title"       Search and choose a result
   kamui search "movie title"       Search live sites, no playback
   kamui anime "anime title"        Search anime streaming sites only
+  kamui manga "manga title"        Search manga and comic sources
+  kamui book "book title"          Search ebook sources
+  kamui novel "novel title"        Search light/web novel sources
   kamui sources                    List recommended sites
   kamui probe                      Check site health
   kamui doctor                     Check playback dependencies
