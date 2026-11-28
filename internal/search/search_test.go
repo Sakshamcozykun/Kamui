@@ -80,3 +80,10 @@ func TestCleanText(t *testing.T) {
 		t.Errorf("got %q", got)
 	}
 }
+
+func TestCleanTextStripsTagsWithGtInAttributes(t *testing.T) {
+	got := cleanText(`<span class="[&>svg]:size-3 group/badge">9.1 PG-13</span> Frieren`)
+	if got != "9.1 PG-13 Frieren" {
+		t.Errorf("got %q", got)
+	}
+}

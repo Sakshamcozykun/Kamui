@@ -92,6 +92,7 @@ kamui doctor                  # check or install playback tools
 | `kamui play <title>` | Try to play a title in `mpv`; prints a browser link if playback fails |
 | `kamui select <title>` | Choose a result and print its page link |
 | `kamui search <title>` | Search reachable sources without playback |
+| `kamui anime <title>` | Search only anime streaming sources (including donghua) |
 | `kamui music <query>` | Choose among music results and play audio or a radio mix |
 | `kamui stream <url>` | Resolve direct media, YouTube, Vimeo, or Twitch URLs and play them in `mpv` |
 | `kamui sources` | List sources, with optional section and starred filters |

@@ -94,9 +94,13 @@ const userAgent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, li
 var (
 	// A very small HTML parser: anchor tags with a quoted href. It covers
 	// server-rendered result lists and nothing else. See the package comment.
-	anchorRe = regexp.MustCompile(`(?is)<a\s+[^>]*?href=['"]([^'"]+)['"][^>]*>(.*?)</a>`)
-	tagRe    = regexp.MustCompile(`(?s)<[^>]+>`)
-	spaceRe  = regexp.MustCompile(`\s+`)
+	anchorRe = regexp.MustCompile(`(?is)<a\s+(?:[^>"']|"[^"]*"|'[^']*')*?href=['"]([^'"]+)['"](?:[^>"']|"[^"]*"|'[^']*')*>(.*?)</a>`)
+	// Tags may contain '>' inside quoted attributes (common in utility-class
+	// frameworks like Tailwind, e.g. class="[&>svg]:size-3"). Consume quoted
+	// spans so those tags are stripped completely instead of leaking CSS text
+	// into result titles.
+	tagRe   = regexp.MustCompile(`(?s)<(?:[^>"']|"[^"]*"|'[^']*')+>`)
+	spaceRe = regexp.MustCompile(`\s+`)
 )
 
 // searchPaths are the common query shapes used by small streaming sites. The

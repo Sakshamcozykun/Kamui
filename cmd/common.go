@@ -40,6 +40,20 @@ func filter(sources []fmhy.Source, section string, starredOnly bool) []fmhy.Sour
 	return out
 }
 
+// animeSources keeps only the wiki's anime streaming sections. Other anime
+// sections (downloads, torrents, tracking databases) are not playable sites,
+// so they are skipped.
+func animeSources(sources []fmhy.Source) []fmhy.Source {
+	out := make([]fmhy.Source, 0, len(sources))
+	for _, s := range sources {
+		path := strings.ToLower(strings.Join(s.Path, " "))
+		if strings.Contains(path, "anime streaming") {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
 // loadSources fetches (or reads from cache) the video wiki and returns its
 // deduplicated sources.
 func loadSources() ([]fmhy.Source, error) {
