@@ -108,6 +108,18 @@ kamui doctor                  # check or install playback tools
 
 Use `kamui <command> --help` for flags and examples. Put flags before the title.
 
+## Source lists
+
+The main catalogue comes from the [FMHY wiki](https://github.com/fmhy/edit).
+Kamui also includes a smaller set of sources curated from
+[EverythingMoe](https://everythingmoe.com/),
+[awesome-anime-sources](https://github.com/anshumanv/awesome-anime-sources),
+[Awesome Piracy](https://github.com/Igglybuff/awesome-piracy) and
+[Awesome Entertainment](https://github.com/OshekharO/awesome-entertainment).
+They appear under `OTHER LISTS` in `kamui sources`, and the `anime`, `manga`,
+`book` and `novel` commands always include them. Sites that are unreachable
+from your network are skipped by the reachability probe.
+
 ## Configuration
 
 Movie ratings and details use OMDb. Get an API key at

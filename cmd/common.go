@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sakshamcozykun/kamui/internal/extras"
 	"github.com/sakshamcozykun/kamui/internal/fmhy"
 )
 
@@ -102,7 +103,7 @@ func sourcesMatching(sources []fmhy.Source, match func(path string) bool) []fmhy
 }
 
 // loadSources fetches (or reads from cache) the video wiki and returns its
-// deduplicated sources.
+// deduplicated sources, including sites curated from other community lists.
 func loadSources() ([]fmhy.Source, error) {
 	return loadDoc(fmhy.DocVideo)
 }
@@ -118,5 +119,47 @@ func loadDoc(doc string) ([]fmhy.Source, error) {
 	if err != nil {
 		return nil, err
 	}
-	return fmhy.Dedupe(fmhy.Parse(string(body))), nil
+	sources := fmhy.Dedupe(fmhy.Parse(string(body)))
+	return appendOtherLists(sources), nil
+}
+
+// appendOtherLists adds sources that are not in FMHY, skipping any site that
+// the wiki already has (hostnames are compared the same way as fmhy.Dedupe).
+func appendOtherLists(sources []fmhy.Source) []fmhy.Source {
+	seen := make(map[string]bool, len(sources))
+	for _, s := range sources {
+		seen[s.Host()] = true
+	}
+
+	out := make([]fmhy.Source, 0, len(sources)+96)
+	out = append(out, sources...)
+	for _, s := range extras.Sources() {
+		host := s.Host()
+		if host == "" || seen[host] {
+			continue
+		}
+		seen[host] = true
+		out = append(out, s)
+	}
+	return out
+}
+
+// limitSources applies --max to wiki sources only. Sources from other lists
+// are a small curated addition and are always kept, so a low --max does not
+// silently hide them in the category commands.
+func limitSources(sources []fmhy.Source, max int) []fmhy.Source {
+	if max <= 0 {
+		return sources
+	}
+	out := make([]fmhy.Source, 0, len(sources))
+	taken := 0
+	for _, s := range sources {
+		if extras.IsExtra(s) || taken < max {
+			if !extras.IsExtra(s) {
+				taken++
+			}
+			out = append(out, s)
+		}
+	}
+	return out
 }

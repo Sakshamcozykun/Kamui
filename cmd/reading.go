@@ -89,7 +89,7 @@ func init() {
 		cmd.Flags().IntVar(&readingWorkers, "workers", 16, "how many sites to search at once")
 		cmd.Flags().DurationVar(&readingTimeout, "timeout", 8*time.Second, "per-request timeout")
 		cmd.Flags().IntVar(&readingLimit, "limit", 25, "maximum results to show")
-		cmd.Flags().IntVar(&readingMax, "max", 80, "only use the first N sources (0 = all)")
+		cmd.Flags().IntVar(&readingMax, "max", 80, "only use the first N wiki sources (other lists are always included; 0 = all)")
 		cmd.Flags().BoolVar(&readingDebug, "debug", false, "show what each site did")
 		cmd.Flags().BoolVar(&readingJSON, "json", false, "print raw JSON instead of a table")
 	}
@@ -111,9 +111,7 @@ func runReadingSearch(label string, selectSources func([]fmhy.Source) []fmhy.Sou
 	if len(sources) == 0 {
 		return fmt.Errorf("no %s sources found in the catalogue", label)
 	}
-	if readingMax > 0 && len(sources) > readingMax {
-		sources = sources[:readingMax]
-	}
+	sources = limitSources(sources, readingMax)
 
 	fmt.Fprintf(os.Stderr, "checking %d %s sources for availability...\n", len(sources), label)
 	alive, err := aliveSources(sources, readingRefresh)

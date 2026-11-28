@@ -48,7 +48,7 @@ func init() {
 	animeCmd.Flags().IntVar(&animeWorkers, "workers", 16, "how many anime sites to search at once")
 	animeCmd.Flags().DurationVar(&animeTimeout, "timeout", 8*time.Second, "per-request timeout")
 	animeCmd.Flags().IntVar(&animeLimit, "limit", 25, "maximum results to show")
-	animeCmd.Flags().IntVar(&animeMax, "max", 60, "only use the first N anime sources (0 = all)")
+	animeCmd.Flags().IntVar(&animeMax, "max", 60, "only use the first N wiki anime sources (other lists are always included; 0 = all)")
 	animeCmd.Flags().BoolVar(&animeDebug, "debug", false, "show what each anime site did")
 	animeCmd.Flags().BoolVar(&animeJSON, "json", false, "print raw JSON instead of a table")
 }
@@ -68,9 +68,7 @@ func runAnime(query string) error {
 	if len(sources) == 0 {
 		return fmt.Errorf("no anime sources found in the catalogue")
 	}
-	if animeMax > 0 && len(sources) > animeMax {
-		sources = sources[:animeMax]
-	}
+	sources = limitSources(sources, animeMax)
 
 	fmt.Fprintf(os.Stderr, "checking %d anime sources for availability...\n", len(sources))
 	alive, err := aliveSources(sources, animeRefresh)
